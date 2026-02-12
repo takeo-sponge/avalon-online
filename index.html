@@ -2,14 +2,16 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Avalon Online - Pro</title>
+    <title>Avalon Online - Remote</title>
     <style>
         :root { --primary: #e94560; --bg: #1a1a2e; --card: #16213e; --accent: #f1c40f; --blue: #3498db; --red: #e74c3c; }
-        body { font-family: sans-serif; background: var(--bg); color: #eee; text-align: center; margin: 0; padding-bottom: 50px; }
-        .card { background: var(--card); padding: 20px; border-radius: 12px; max-width: 500px; margin: 20px auto; border: 1px solid #0f3460; }
+        body { font-family: sans-serif; background: var(--bg); color: #eee; text-align: center; padding: 20px; }
+        .card { background: var(--card); padding: 20px; border-radius: 12px; max-width: 450px; margin: auto; border: 1px solid #0f3460; }
         .btn { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: bold; }
         input { width: 90%; padding: 12px; margin: 10px 0; background: #000; color: #fff; border: 1px solid #444; border-radius: 4px; }
-        .p-item { padding: 10px; border-bottom: 1px solid #333; text-align: left; }
+        .player-list { text-align: left; margin: 20px 0; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; }
+        .status-badge { font-size: 0.8em; padding: 2px 8px; border-radius: 10px; background: var(--accent); color: #000; margin-left: 10px; }
+        .role-box { background: rgba(0,0,0,0.4); padding: 15px; border-radius: 8px; font-size: 0.9em; line-height: 1.6; margin-top: 10px; text-align: left; }
     </style>
 </head>
 <body>
@@ -17,29 +19,37 @@
 <div id="setup-screen" class="card">
     <h2>🏰 アヴァロン・オンライン</h2>
     <input type="text" id="player-name" placeholder="あなたの名前">
-    <input type="text" id="room-id" placeholder="ルームキー（例: take123）">
+    <input type="text" id="room-id" placeholder="ルーム名（例: take123）">
     <div style="display:flex; gap:10px;">
-        <button class="btn" style="background:var(--accent); color:#000;" onclick="handleJoin(true)">ルームを作成</button>
-        <button class="btn" onclick="handleJoin(false)">ルームに参加</button>
+        <button class="btn" style="background:var(--accent); color:#000;" onclick="joinGame(true)">ルームを作成</button>
+        <button class="btn" onclick="joinGame(false)">ルームに参加</button>
     </div>
 </div>
 
 <div id="lobby-screen" class="card" style="display:none;">
-    <h3>ルーム: <span id="current-room-display" style="color:var(--accent)"></span></h3>
-    <div style="margin-top:20px;">
-        <h4>参加者 (<span id="player-count">0</span>)</h4>
-        <div id="list-items"></div>
+    <h2>🏰 待機室</h2>
+    <p>ルーム: <b id="room-display" style="color:var(--accent)">...</b></p>
+    
+    <div id="welcome-msg" style="margin-bottom:10px; font-size:0.9em; color:#bbb;"></div>
+
+    <div class="player-list">
+        <h4>参加者 (<span id="player-count">0</span> / 10)</h4>
+        <ul id="list-items" style="list-style:none; padding:0;"></ul>
     </div>
+
     <div id="host-controls" style="display:none;">
-        <p style="color:var(--accent); font-size:0.8em;">あなたはホストです。5人以上で開始できます。</p>
+        <p style="font-size:0.8em; color:var(--accent);">あなたはホストです。5人以上で開始できます。</p>
         <button class="btn" style="background:var(--accent); color:#000;" onclick="setupRoles()">役職を配布して開始</button>
     </div>
 </div>
 
 <div id="game-screen" style="display:none;" class="card">
-    <h2 id="my-role-name" style="color:var(--accent)"></h2>
-    <p id="status-msg"></p>
-    <div id="action-area"></div>
+    <h3>あなたの役職</h3>
+    <h1 id="my-role-name" style="color:var(--accent);">???</h1>
+    <div id="role-purpose" style="font-weight:bold; margin-bottom:10px;"></div>
+    <div id="role-desc" class="role-box"></div>
+    <hr style="border:0; border-top:1px solid #444; margin:20px 0;">
+    <p id="waiting-msg">遠征のリーダーがチームを提案するのを待っています...</p>
 </div>
 
 <script type="module">
@@ -58,84 +68,130 @@
     const db = getDatabase(app);
 
     let myName = "";
-    let currentRoom = "";
+    let roomId = "";
     let myId = null;
 
-    window.handleJoin = async function(isHostRequest) {
-        myName = document.getElementById('player-name').value;
-        currentRoom = document.getElementById('room-id').value;
-        if (!myName || !currentRoom) return alert("名前とルームキーを入力してね！");
+    // --- 入室・作成処理 ---
+    window.joinGame = async function(isHostRequest) {
+        myName = document.getElementById('player-name').value.trim();
+        roomId = document.getElementById('room-id').value.trim();
+        
+        if (!myName || !roomId) return alert("名前とルーム名を入れてね！");
 
-        const roomRef = ref(db, `rooms/${currentRoom}`);
+        const roomRef = ref(db, `rooms/${roomId}`);
         const snap = await get(roomRef);
         const roomData = snap.val() || {};
 
-        // 1. ホスト設定の同期
+        // ホスト権限のチェック
         if (isHostRequest) {
-            // 誰もいないか、自分がホストだった場合のみホスト名を書き込む
-            if (!roomData.hostName || roomData.hostName === myName) {
-                await update(roomRef, { hostName: myName });
-            } else {
-                alert("このルームには既に別のホストがいます。「ルームに参加」を使ってください。");
-                return;
+            if (roomData.hostName && roomData.hostName !== myName) {
+                if(!confirm("他のホストが既にいます。ホストとして入り直しますか？")) return;
             }
+            await update(roomRef, { hostName: myName });
         }
 
-        // 2. プレイヤー登録（リロードしてもIDが変わらないようにする）
-        const pSnap = await get(ref(db, `rooms/${currentRoom}/players`));
+        // プレイヤーIDの確定（リロード対策）
+        const playersRef = ref(db, `rooms/${roomId}/players`);
+        const pSnap = await get(playersRef);
         const players = pSnap.val() || {};
         let foundId = Object.keys(players).find(id => players[id].name === myName);
         
         if (foundId === undefined) {
             foundId = Object.keys(players).length;
-            await set(ref(db, `rooms/${currentRoom}/players/${foundId}`), { id: foundId, name: myName });
+            await set(ref(db, `rooms/${roomId}/players/${foundId}`), { id: foundId, name: myName, role: "", side: "" });
         }
         myId = foundId;
+        sessionStorage.setItem('avalon_myId', myId);
 
         // UI切り替え
         document.getElementById('setup-screen').style.display = 'none';
         document.getElementById('lobby-screen').style.display = 'block';
-        document.getElementById('current-room-display').innerText = currentRoom;
+        document.getElementById('room-display').innerText = roomId;
+        document.getElementById('welcome-msg').innerText = `ようこそ、${myName}さん`;
 
-        // 3. リアルタイム監視開始
-        onValue(roomRef, (snapshot) => {
+        // リアルタイム同期開始
+        monitorRoom();
+    };
+
+    function monitorRoom() {
+        onValue(ref(db, `rooms/${roomId}`), (snapshot) => {
             const data = snapshot.val();
             if (!data) return;
-            const pList = data.players ? Object.values(data.players) : [];
+
+            const playerArray = data.players ? Object.values(data.players) : [];
             
-            // 参加者リスト更新
-            document.getElementById('player-count').innerText = pList.length;
-            document.getElementById('list-items').innerHTML = pList.map(p => 
-                `<div class="p-item">👤 ${p.name} ${p.name === data.hostName ? '👑' : ''}</div>`
+            // プレイヤーリスト更新
+            document.getElementById('player-count').innerText = playerArray.length;
+            document.getElementById('list-items').innerHTML = playerArray.map(p => 
+                `<li>👤 ${p.name} ${p.name === data.hostName ? '<span class="status-badge">Host</span>' : ''}</li>`
             ).join('');
 
-            // ホスト権限の復活チェック
+            // ホストボタン表示
             if (data.hostName === myName) {
-                document.getElementById('host-controls').style.display = pList.length >= 5 ? 'block' : 'none';
+                document.getElementById('host-controls').style.display = playerArray.length >= 5 ? 'block' : 'none';
             }
 
-            // ゲーム開始判定
-            if (data.status === 'STARTED') {
-                document.getElementById('lobby-screen').style.display = 'none';
-                document.getElementById('game-screen').style.display = 'block';
-                document.getElementById('my-role-name').innerText = data.players[myId].role;
-                document.getElementById('status-msg').innerText = "ゲーム開始！(詳細ロジックはここから追加)";
+            // ゲーム開始検知
+            if (data.status === 'ROLE_DISTRIBUTED') {
+                showRoleScreen(data);
             }
         });
-    };
+    }
 
-    window.setupRoles = async () => {
-        const snap = await get(ref(db, `rooms/${currentRoom}/players`));
+    // --- 役職配布（人数に合わせて自動調整） ---
+    window.setupRoles = async function() {
+        const snap = await get(ref(db, `rooms/${roomId}/players`));
         const players = Object.values(snap.val());
-        let pool = ["マーリン", "暗殺者", "忠臣", "忠臣", "手先", "忠臣", "パーシヴァル", "モルガナ"].slice(0, players.length).sort(() => Math.random() - 0.5);
+        const count = players.length;
+
+        // 5~10人対応の役職プール
+        const goodPool = ["マーリン", "パーシヴァル", "正義の忠臣", "正義の忠臣", "正義の忠臣", "正義の忠臣"];
+        const evilPool = ["暗殺者", "モルガナ", "モードレッド", "邪悪の手先", "邪悪の手先"];
         
-        const updates = { status: 'STARTED' };
+        let gCount = (count >= 9) ? 6 : (count >= 7) ? 4 : (count === 8) ? 5 : 3;
+        let pool = [...goodPool.slice(0, gCount), ...evilPool.slice(0, count - gCount)];
+        pool = pool.sort(() => Math.random() - 0.5);
+
+        const updates = {};
         players.forEach((p, i) => {
-            updates[`players/${p.id}/role`] = pool[i];
+            const role = pool[i];
+            const side = ["暗殺者", "モルガナ", "モードレッド", "邪悪の手先"].includes(role) ? "Evil" : "Good";
+            updates[`players/${p.id}/role`] = role;
+            updates[`players/${p.id}/side`] = side;
         });
-        update(ref(db, `rooms/${currentRoom}`), updates);
+        updates['status'] = 'ROLE_DISTRIBUTED';
+        updates['leaderIdx'] = 0;
+        
+        update(ref(db, `rooms/${roomId}`), updates);
     };
 
+    function showRoleScreen(data) {
+        const me = data.players[myId];
+        const allPlayers = Object.values(data.players);
+
+        document.getElementById('lobby-screen').style.display = 'none';
+        document.getElementById('game-screen').style.display = 'block';
+        document.getElementById('my-role-name').innerText = me.role;
+
+        let purpose = me.side === "Good" ? "【目的】遠征を3回成功させよ！" : "【目的】遠征を3回失敗させるか暗殺せよ！";
+        document.getElementById('role-purpose').innerText = purpose;
+
+        // 特殊スキルの可視化ロジック
+        let info = "";
+        if (me.role === "マーリン") {
+            const evils = allPlayers.filter(p => p.side === "Evil" && p.role !== "モードレッド").map(p => p.name);
+            info = `【予見した邪悪な者】<br>${evils.join(", ")}<br><small>※モードレッドは正体が見えません</small>`;
+        } else if (me.role === "パーシヴァル") {
+            const targets = allPlayers.filter(p => p.role === "マーリン" || p.role === "モルガナ").map(p => p.name);
+            info = `【マーリン候補（一方はモルガナ）】<br>${targets.join(", ")}`;
+        } else if (me.side === "Evil") {
+            const friends = allPlayers.filter(p => p.side === "Evil" && p.id != myId).map(p => p.name);
+            info = friends.length > 0 ? `【邪悪な仲間】<br>${friends.join(", ")}` : "仲間はいません（孤独な戦いです）";
+        } else {
+            info = "あなたは正義の陣営です。誰が味方か慎重に見極めましょう。";
+        }
+        document.getElementById('role-desc').innerHTML = info;
+    }
 </script>
 </body>
 </html>
