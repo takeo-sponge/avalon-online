@@ -2,19 +2,25 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Avalon Online - Fully Fixed</title>
+    <title>Avalon Online - Master</title>
     <style>
         :root { --primary: #e94560; --bg: #1a1a2e; --card: #16213e; --accent: #f1c40f; --blue: #3498db; --red: #e74c3c; }
-        body { font-family: sans-serif; background: var(--bg); color: #eee; text-align: center; padding: 20px; }
-        .card { background: var(--card); padding: 20px; border-radius: 12px; max-width: 500px; margin: auto; border: 1px solid #0f3460; }
+        body { font-family: sans-serif; background: var(--bg); color: #eee; text-align: center; margin: 0; padding-bottom: 50px; }
+        .card { background: var(--card); padding: 20px; border-radius: 12px; max-width: 500px; margin: 20px auto; border: 1px solid #0f3460; }
         .btn { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: bold; }
-        .btn:disabled { background: #444; }
+        .btn:disabled { background: #444; cursor: not-allowed; }
         input { width: 90%; padding: 12px; margin: 10px 0; background: #000; color: #fff; border: 1px solid #444; border-radius: 4px; }
-        .p-list { text-align: left; list-style: none; padding: 0; }
-        .p-item { padding: 8px; border-bottom: 1px solid #333; }
+        .p-item { padding: 10px; border-bottom: 1px solid #333; text-align: left; display: flex; justify-content: space-between; }
+        .quest-node { display: inline-block; width: 40px; height: 40px; border-radius: 50%; border: 2px solid #555; line-height: 40px; margin: 5px; }
+        .node-active { border-color: var(--accent); box-shadow: 0 0 10px var(--accent); }
+        .node-success { background: var(--blue); border-color: #fff; }
+        .node-fail { background: var(--red); border-color: #fff; }
+        #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 9999; display: none; align-items: center; justify-content: center; font-size: 3em; font-weight: bold; }
     </style>
 </head>
 <body>
+
+<div id="overlay"></div>
 
 <div id="lobby-screen" class="card">
     <h2>🏰 ルーム: <span id="room-display">...</span></h2>
@@ -22,28 +28,27 @@
         <input type="text" id="player-name" placeholder="名前を入力">
         <button class="btn" onclick="joinGame()">入室する</button>
     </div>
-    <div style="margin-top:20px; text-align:left;">
+    <div style="margin-top:20px;">
         <h4>参加者 (<span id="player-count">0</span>)</h4>
-        <ul id="list-items" class="p-list"></ul>
+        <div id="list-items"></div>
     </div>
-    <div id="host-controls" style="display:none;">
-        <button class="btn" style="background:var(--accent); color:#000;" onclick="setupRoles()">役職を配布して開始</button>
-    </div>
+    <button id="start-btn" class="btn" style="display:none; background:var(--accent); color:#000;" onclick="setupRoles()">役職配布して開始</button>
 </div>
 
-<div id="game-screen" style="display:none;" class="card">
-    <h3 id="round-info">第1遠征</h3>
-    <div style="border: 2px solid var(--accent); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-        <h2 id="my-role-name" style="color:var(--accent); margin:5px 0;">???</h2>
-        <div id="my-purpose" style="font-size:0.8em; font-weight:bold; color:var(--accent);"></div>
-        <div id="my-skill" style="font-size:0.85em; margin-top:10px; opacity:0.9; text-align:left; background:rgba(0,0,0,0.3); padding:8px;"></div>
+<div id="game-screen" style="display:none;">
+    <div id="quest-track" class="card" style="background:rgba(0,0,0,0.5);">
+        <div class="quest-node" id="n1">1</div><div class="quest-node" id="n2">2</div><div class="quest-node" id="n3">3</div><div class="quest-node" id="n4">4</div><div class="quest-node" id="n5">5</div>
+        <div id="reject-info" style="font-size:0.8em; color:var(--accent); margin-top:5px;"></div>
     </div>
-    <div id="main-action-area">
-        <p id="status-msg">待機中...</p>
-        <div id="proposal-area" style="display:none;">
-            <div id="member-select" style="text-align:left; margin-bottom:10px;"></div>
-            <button class="btn" onclick="proposeTeam()">チームを提案する</button>
-        </div>
+
+    <div class="card">
+        <h3 id="my-role-display" style="color:var(--accent); margin:5px 0;"></h3>
+        <div id="my-skill-display" style="font-size:0.85em; background:rgba(0,0,0,0.3); padding:10px; border-radius:8px;"></div>
+    </div>
+
+    <div id="action-card" class="card">
+        <h3 id="phase-title">リーダーの提案待ち</h3>
+        <div id="phase-content"></div>
     </div>
 </div>
 
@@ -64,100 +69,100 @@
     const urlParams = new URLSearchParams(window.location.search);
     const roomId = urlParams.get('room') || 'default-room';
     document.getElementById('room-display').innerText = roomId;
-
     let myId = sessionStorage.getItem('avalon_myId');
-    let players = [];
+    const questData = {5:[2,3,2,3,3], 6:[2,3,4,3,4], 7:[2,3,3,4,4], 8:[3,4,4,5,5], 9:[3,4,4,5,5], 10:[3,4,4,5,5]};
 
-    window.joinGame = async function() {
+    window.joinGame = async () => {
         const name = document.getElementById('player-name').value;
-        if (!name) return;
-        const snapshot = await get(ref(db, `rooms/${roomId}/players`));
-        myId = snapshot.exists() ? Object.keys(snapshot.val()).length : 0;
+        if(!name) return;
+        const snap = await get(ref(db, `rooms/${roomId}/players`));
+        myId = snap.exists() ? Object.keys(snap.val()).length : 0;
         sessionStorage.setItem('avalon_myId', myId);
-        await set(ref(db, `rooms/${roomId}/players/${myId}`), { id: myId, name: name, role: "" });
-        document.getElementById('join-area').innerHTML = `<p>✅ 入室済み: ${name}</p>`;
+        await set(ref(db, `rooms/${roomId}/players/${myId}`), { id: myId, name: name });
+        document.getElementById('join-area').innerHTML = `✅ 入室完了`;
     };
 
-    onValue(ref(db, `rooms/${roomId}`), (snapshot) => {
-        const data = snapshot.val() || {};
-        players = data.players ? Object.values(data.players) : [];
+    onValue(ref(db, `rooms/${roomId}`), (snap) => {
+        const data = snap.val(); if(!data) return;
+        const players = data.players ? Object.values(data.players) : [];
         
+        // ロビー更新
         document.getElementById('player-count').innerText = players.length;
-        document.getElementById('list-items').innerHTML = players.map(p => `<li class="p-item">👤 ${p.name} ${p.id == 0 ? '👑' : ''}</li>`).join('');
-        
-        if (myId == 0 && players.length >= 5 && data.status !== 'STARTED') {
-            document.getElementById('host-controls').style.display = 'block';
-        }
+        document.getElementById('list-items').innerHTML = players.map(p => `<div class="p-item">${p.name} ${p.id==0?'👑':''}</div>`).join('');
+        if(myId == 0 && players.length >= 5 && data.status !== 'STARTED') document.getElementById('start-btn').style.display = 'block';
 
-        if (data.status === 'STARTED') {
-            showGameScreen(data);
-        }
+        if(data.status === 'STARTED') renderGame(data, players);
     });
 
-    window.setupRoles = async function() {
+    window.setupRoles = async () => {
+        const snap = await get(ref(db, `rooms/${roomId}/players`));
+        const players = Object.values(snap.val());
         const count = players.length;
-        // 10人まで対応した役職プール（人数の合計に合わせる）
-        const goodRoles = ["マーリン", "パーシヴァル", "正義の忠臣", "正義の忠臣", "正義の忠臣", "正義の忠臣"];
-        const evilRoles = ["暗殺者", "モルガナ", "モードレッド", "オベロン", "邪悪の手先"];
+        const gRoles = ["マーリン", "パーシヴァル", "正義の忠臣", "正義の忠臣", "正義の忠臣", "正義の忠臣"];
+        const eRoles = ["暗殺者", "モルガナ", "モードレッド", "オベロン", "邪悪の手先"];
+        let gCount = (count >= 9) ? 6 : (count >= 7) ? 4 : (count === 8) ? 5 : 3;
+        let pool = [...gRoles.slice(0, gCount), ...eRoles.slice(0, count - gCount)].sort(() => Math.random() - 0.5);
         
-        // 人数比率の決定
-        let gCount = (count >= 9) ? 6 : (count >= 7) ? 4 : 3;
-        if(count === 8) gCount = 5;
-        let eCount = count - gCount;
-
-        let pool = [...goodRoles.slice(0, gCount), ...evilRoles.slice(0, eCount)];
-        pool = pool.sort(() => Math.random() - 0.5);
-
-        const updates = {};
+        const updates = { status: 'STARTED', round: 1, leaderIdx: 0, rejectCount: 0, scoreG: 0, scoreE: 0, phase: 'PROPOSING' };
         players.forEach((p, i) => {
-            const role = pool[i];
-            const side = ["暗殺者", "モルガナ", "手先", "モードレッド"].some(r => role.includes(r)) ? "Evil" : "Good";
-            updates[`players/${p.id}/role`] = role;
-            updates[`players/${p.id}/side`] = side;
+            updates[`players/${p.id}/role`] = pool[i];
+            updates[`players/${p.id}/side`] = ["暗殺者", "モルガナ", "モードレッド", "手先"].some(r => pool[i].includes(r)) ? "Evil" : "Good";
         });
-        updates['status'] = 'STARTED';
-        updates['leaderIdx'] = 0;
         update(ref(db, `rooms/${roomId}`), updates);
     };
 
-    function showGameScreen(data) {
+    function renderGame(data, players) {
         document.getElementById('lobby-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'block';
+        const me = players.find(p => p.id == myId);
         
-        const me = data.players[myId];
-        document.getElementById('my-role-name').innerText = me.role;
-        document.getElementById('my-purpose').innerText = me.side === "Good" ? "【目的】遠征を3回成功させよ！" : "【目的】3回失敗させるか暗殺せよ！";
-        
-        let skill = "特別な力はありません。";
-        const allP = Object.values(data.players);
-        if (me.role === "マーリン") {
-            const evils = allP.filter(p => p.side === "Evil" && p.role !== "モードレッド").map(p => p.name);
-            skill = `【邪悪な者（除モードレッド）】: ${evils.join(", ")}`;
-        } else if (me.role === "パーシヴァル") {
-            const targets = allP.filter(p => ["マーリン", "モルガナ"].includes(p.role)).map(p => p.name);
-            skill = `【マーリン候補】: ${targets.join(", ")}`;
-        } else if (me.side === "Evil" && me.role !== "オベロン") {
-            const evils = allP.filter(p => p.side === "Evil" && p.role !== "オベロン" && p.id != myId).map(p => p.name);
-            skill = `【仲間の邪悪】: ${evils.join(", ")}`;
+        // クエスト表示
+        for(let i=1; i<=5; i++) {
+            const el = document.getElementById(`n${i}`);
+            el.className = 'quest-node' + (i == data.round ? ' node-active' : '');
+            if(data.history && data.history[i]) el.classList.add(data.history[i] === 'SUCCESS' ? 'node-success' : 'node-fail');
         }
-        document.getElementById('my-skill').innerText = skill;
+        document.getElementById('reject-info').innerText = `否決回数: ${data.rejectCount} / 5`;
 
+        // 役職表示
+        document.getElementById('my-role-display').innerText = `役職: ${me.role}`;
+        let skill = "特になし";
+        if(me.role === "マーリン") skill = "邪悪: " + players.filter(p => p.side === "Evil" && p.role !== "モードレッド").map(p => p.name).join(", ");
+        else if(me.role === "パーシヴァル") skill = "候補: " + players.filter(p => ["マーリン", "モルガナ"].includes(p.role)).map(p => p.name).join(", ");
+        else if(me.side === "Evil") skill = "仲間: " + players.filter(p => p.side === "Evil" && p.id != myId).map(p => p.name).join(", ");
+        document.getElementById('my-skill-display').innerText = skill;
+
+        // フェーズ管理
+        const content = document.getElementById('phase-content');
         const isLeader = data.leaderIdx == myId;
-        const leaderName = data.players[data.leaderIdx].name;
-        
-        if (!data.currentProposal) {
-            document.getElementById('status-msg').innerText = `リーダー ${leaderName} が選考中...`;
-            if (isLeader) {
-                document.getElementById('proposal-area').style.display = 'block';
-                document.getElementById('member-select').innerHTML = allP.map(p => `<div><input type="checkbox" class="p-sel" value="${p.id}"> ${p.name}</div>`).join('');
-            }
+
+        if(data.phase === 'PROPOSING') {
+            document.getElementById('phase-title').innerText = `${players[data.leaderIdx].name}がチーム選考中`;
+            if(isLeader) {
+                content.innerHTML = players.map(p => `<div><input type="checkbox" class="team-sel" value="${p.id}"> ${p.name}</div>`).join('') + `<button class="btn" onclick="sendProposal()">提案する</button>`;
+            } else content.innerHTML = "リーダーの選択を待ってください...";
+        } 
+        else if(data.phase === 'VOTING') {
+            const teamNames = data.currentProposal.map(id => players[id].name).join(", ");
+            document.getElementById('phase-title').innerText = "チーム承認投票";
+            content.innerHTML = `<p>提案メンバー: <b>${teamNames}</b></p>` + `<div style="display:flex;gap:10px;"><button class="btn" style="background:var(--blue)" onclick="vote(true)">承認</button><button class="btn" style="background:var(--red)" onclick="vote(false)">却下</button></div>`;
+        }
+        else if(data.phase === 'MISSION') {
+            document.getElementById('phase-title').innerText = "遠征中...";
+            if(data.currentProposal.includes(String(myId))) {
+                content.innerHTML = `<p>任務を選んでください</p><div style="display:flex;gap:10px;"><button class="btn" style="background:var(--blue)" onclick="mission(true)">成功</button>` + (me.side === "Evil" ? `<button class="btn" style="background:var(--red)" onclick="mission(false)">失敗</button>` : "") + `</div>`;
+            } else content.innerHTML = "メンバーの報告を待っています...";
         }
     }
 
-    window.proposeTeam = () => {
-        const selected = Array.from(document.querySelectorAll('.p-sel:checked')).map(el => el.value);
-        update(ref(db, `rooms/${roomId}/currentProposal`), selected);
+    window.sendProposal = () => {
+        const sel = Array.from(document.querySelectorAll('.team-sel:checked')).map(el => el.value);
+        const need = questData[players.length][gameState.round - 1]; // 人数チェックを入れるならここ
+        update(ref(db, `rooms/${roomId}`), { currentProposal: sel, phase: 'VOTING', votes: {} });
     };
+
+    window.vote = (val) => update(ref(db, `rooms/${roomId}/votes/${myId}`), val);
+    window.mission = (val) => update(ref(db, `rooms/${roomId}/missions/${myId}`), val);
 </script>
 </body>
 </html>
