@@ -239,12 +239,12 @@
         update(ref(db, `rooms/${roomId}`), {
             currentProposal: selected,
             phase: 'VOTING',
-            votes: {} 
+            votes: null
         });
     };
 
     window.castVote = (val) => {
-        update(ref(db, `rooms/${roomId}/votes/${myId}`), val);
+        set(ref(db, `rooms/${roomId}/votes/${myId}`), val);
     };
 </script>
 </body>
