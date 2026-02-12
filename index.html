@@ -66,7 +66,7 @@
     　<span style="font-size: 0.7em; color: #666; display: block; margin-bottom: 5px;">別の名前で入り直したい場合は：</span>
     　<button class="btn" style="background:transparent; border: 1px solid #444; color:#888; font-size:0.75em; width: auto; padding: 5px 15px;" onclick="leaveGame()">情報をクリアして退出</button>
 　　　</div>
-</div>
+     </div>
 
 <div id="game-screen" style="display:none;" class="card">
     <h3 id="my-role-name" style="color:var(--accent); font-size:2em; margin:10px 0;"></h3>
@@ -99,11 +99,15 @@
 window.onload = () => {
     const savedName = localStorage.getItem('avalon_name');
     const savedRoom = localStorage.getItem('avalon_room');
+    const savedIsHost = localStorage.getItem('avalon_isHost') === 'true';
+
     if (savedName && savedRoom) {
         document.getElementById('player-name').value = savedName;
         document.getElementById('room-id').value = savedRoom;
-        // 保存されていたら自動で参加処理
-        joinGame(localStorage.getItem('avalon_isHost') === 'true');
+        // 少しだけ待ってから実行（確実にFirebaseの準備を待つため）
+        setTimeout(() => {
+            window.joinGame(savedIsHost);
+        }, 500);
     }
 };
 
