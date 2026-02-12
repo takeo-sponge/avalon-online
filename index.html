@@ -2,54 +2,44 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Avalon Online - Master</title>
+    <title>Avalon Online - Pro</title>
     <style>
         :root { --primary: #e94560; --bg: #1a1a2e; --card: #16213e; --accent: #f1c40f; --blue: #3498db; --red: #e74c3c; }
         body { font-family: sans-serif; background: var(--bg); color: #eee; text-align: center; margin: 0; padding-bottom: 50px; }
         .card { background: var(--card); padding: 20px; border-radius: 12px; max-width: 500px; margin: 20px auto; border: 1px solid #0f3460; }
         .btn { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: bold; }
-        .btn:disabled { background: #444; cursor: not-allowed; }
         input { width: 90%; padding: 12px; margin: 10px 0; background: #000; color: #fff; border: 1px solid #444; border-radius: 4px; }
-        .p-item { padding: 10px; border-bottom: 1px solid #333; text-align: left; display: flex; justify-content: space-between; }
-        .quest-node { display: inline-block; width: 40px; height: 40px; border-radius: 50%; border: 2px solid #555; line-height: 40px; margin: 5px; }
-        .node-active { border-color: var(--accent); box-shadow: 0 0 10px var(--accent); }
-        .node-success { background: var(--blue); border-color: #fff; }
-        .node-fail { background: var(--red); border-color: #fff; }
-        #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 9999; display: none; align-items: center; justify-content: center; font-size: 3em; font-weight: bold; }
+        .p-item { padding: 10px; border-bottom: 1px solid #333; text-align: left; }
     </style>
 </head>
 <body>
 
-<div id="overlay"></div>
-
-<div id="lobby-screen" class="card">
-    <h2>🏰 ルーム: <span id="room-display">...</span></h2>
-    <div id="join-area">
-        <input type="text" id="player-name" placeholder="名前を入力">
-        <button class="btn" onclick="joinGame()">入室する</button>
+<div id="setup-screen" class="card">
+    <h2>🏰 アヴァロン・オンライン</h2>
+    <input type="text" id="player-name" placeholder="あなたの名前">
+    <input type="text" id="room-id" placeholder="ルームキー（例: take123）">
+    <div style="display:flex; gap:10px;">
+        <button class="btn" style="background:var(--accent); color:#000;" onclick="handleJoin(true)">ルームを作成</button>
+        <button class="btn" onclick="handleJoin(false)">ルームに参加</button>
     </div>
+</div>
+
+<div id="lobby-screen" class="card" style="display:none;">
+    <h3>ルーム: <span id="current-room-display" style="color:var(--accent)"></span></h3>
     <div style="margin-top:20px;">
         <h4>参加者 (<span id="player-count">0</span>)</h4>
         <div id="list-items"></div>
     </div>
-    <button id="start-btn" class="btn" style="display:none; background:var(--accent); color:#000;" onclick="setupRoles()">役職配布して開始</button>
+    <div id="host-controls" style="display:none;">
+        <p style="color:var(--accent); font-size:0.8em;">あなたはホストです。5人以上で開始できます。</p>
+        <button class="btn" style="background:var(--accent); color:#000;" onclick="setupRoles()">役職を配布して開始</button>
+    </div>
 </div>
 
-<div id="game-screen" style="display:none;">
-    <div id="quest-track" class="card" style="background:rgba(0,0,0,0.5);">
-        <div class="quest-node" id="n1">1</div><div class="quest-node" id="n2">2</div><div class="quest-node" id="n3">3</div><div class="quest-node" id="n4">4</div><div class="quest-node" id="n5">5</div>
-        <div id="reject-info" style="font-size:0.8em; color:var(--accent); margin-top:5px;"></div>
-    </div>
-
-    <div class="card">
-        <h3 id="my-role-display" style="color:var(--accent); margin:5px 0;"></h3>
-        <div id="my-skill-display" style="font-size:0.85em; background:rgba(0,0,0,0.3); padding:10px; border-radius:8px;"></div>
-    </div>
-
-    <div id="action-card" class="card">
-        <h3 id="phase-title">リーダーの提案待ち</h3>
-        <div id="phase-content"></div>
-    </div>
+<div id="game-screen" style="display:none;" class="card">
+    <h2 id="my-role-name" style="color:var(--accent)"></h2>
+    <p id="status-msg"></p>
+    <div id="action-area"></div>
 </div>
 
 <script type="module">
@@ -66,103 +56,86 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const urlParams = new URLSearchParams(window.location.search);
-    const roomId = urlParams.get('room') || 'default-room';
-    document.getElementById('room-display').innerText = roomId;
-    let myId = sessionStorage.getItem('avalon_myId');
-    const questData = {5:[2,3,2,3,3], 6:[2,3,4,3,4], 7:[2,3,3,4,4], 8:[3,4,4,5,5], 9:[3,4,4,5,5], 10:[3,4,4,5,5]};
 
-    window.joinGame = async () => {
-        const name = document.getElementById('player-name').value;
-        if(!name) return;
-        const snap = await get(ref(db, `rooms/${roomId}/players`));
-        myId = snap.exists() ? Object.keys(snap.val()).length : 0;
-        sessionStorage.setItem('avalon_myId', myId);
-        await set(ref(db, `rooms/${roomId}/players/${myId}`), { id: myId, name: name });
-        document.getElementById('join-area').innerHTML = `✅ 入室完了`;
-    };
+    let myName = "";
+    let currentRoom = "";
+    let myId = null;
 
-    onValue(ref(db, `rooms/${roomId}`), (snap) => {
-        const data = snap.val(); if(!data) return;
-        const players = data.players ? Object.values(data.players) : [];
+    window.handleJoin = async function(isHostRequest) {
+        myName = document.getElementById('player-name').value;
+        currentRoom = document.getElementById('room-id').value;
+        if (!myName || !currentRoom) return alert("名前とルームキーを入力してね！");
+
+        const roomRef = ref(db, `rooms/${currentRoom}`);
+        const snap = await get(roomRef);
+        const roomData = snap.val() || {};
+
+        // 1. ホスト設定の同期
+        if (isHostRequest) {
+            // 誰もいないか、自分がホストだった場合のみホスト名を書き込む
+            if (!roomData.hostName || roomData.hostName === myName) {
+                await update(roomRef, { hostName: myName });
+            } else {
+                alert("このルームには既に別のホストがいます。「ルームに参加」を使ってください。");
+                return;
+            }
+        }
+
+        // 2. プレイヤー登録（リロードしてもIDが変わらないようにする）
+        const pSnap = await get(ref(db, `rooms/${currentRoom}/players`));
+        const players = pSnap.val() || {};
+        let foundId = Object.keys(players).find(id => players[id].name === myName);
         
-        // ロビー更新
-        document.getElementById('player-count').innerText = players.length;
-        document.getElementById('list-items').innerHTML = players.map(p => `<div class="p-item">${p.name} ${p.id==0?'👑':''}</div>`).join('');
-        if(myId == 0 && players.length >= 5 && data.status !== 'STARTED') document.getElementById('start-btn').style.display = 'block';
+        if (foundId === undefined) {
+            foundId = Object.keys(players).length;
+            await set(ref(db, `rooms/${currentRoom}/players/${foundId}`), { id: foundId, name: myName });
+        }
+        myId = foundId;
 
-        if(data.status === 'STARTED') renderGame(data, players);
-    });
+        // UI切り替え
+        document.getElementById('setup-screen').style.display = 'none';
+        document.getElementById('lobby-screen').style.display = 'block';
+        document.getElementById('current-room-display').innerText = currentRoom;
+
+        // 3. リアルタイム監視開始
+        onValue(roomRef, (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+            const pList = data.players ? Object.values(data.players) : [];
+            
+            // 参加者リスト更新
+            document.getElementById('player-count').innerText = pList.length;
+            document.getElementById('list-items').innerHTML = pList.map(p => 
+                `<div class="p-item">👤 ${p.name} ${p.name === data.hostName ? '👑' : ''}</div>`
+            ).join('');
+
+            // ホスト権限の復活チェック
+            if (data.hostName === myName) {
+                document.getElementById('host-controls').style.display = pList.length >= 5 ? 'block' : 'none';
+            }
+
+            // ゲーム開始判定
+            if (data.status === 'STARTED') {
+                document.getElementById('lobby-screen').style.display = 'none';
+                document.getElementById('game-screen').style.display = 'block';
+                document.getElementById('my-role-name').innerText = data.players[myId].role;
+                document.getElementById('status-msg').innerText = "ゲーム開始！(詳細ロジックはここから追加)";
+            }
+        });
+    };
 
     window.setupRoles = async () => {
-        const snap = await get(ref(db, `rooms/${roomId}/players`));
+        const snap = await get(ref(db, `rooms/${currentRoom}/players`));
         const players = Object.values(snap.val());
-        const count = players.length;
-        const gRoles = ["マーリン", "パーシヴァル", "正義の忠臣", "正義の忠臣", "正義の忠臣", "正義の忠臣"];
-        const eRoles = ["暗殺者", "モルガナ", "モードレッド", "オベロン", "邪悪の手先"];
-        let gCount = (count >= 9) ? 6 : (count >= 7) ? 4 : (count === 8) ? 5 : 3;
-        let pool = [...gRoles.slice(0, gCount), ...eRoles.slice(0, count - gCount)].sort(() => Math.random() - 0.5);
+        let pool = ["マーリン", "暗殺者", "忠臣", "忠臣", "手先", "忠臣", "パーシヴァル", "モルガナ"].slice(0, players.length).sort(() => Math.random() - 0.5);
         
-        const updates = { status: 'STARTED', round: 1, leaderIdx: 0, rejectCount: 0, scoreG: 0, scoreE: 0, phase: 'PROPOSING' };
+        const updates = { status: 'STARTED' };
         players.forEach((p, i) => {
             updates[`players/${p.id}/role`] = pool[i];
-            updates[`players/${p.id}/side`] = ["暗殺者", "モルガナ", "モードレッド", "手先"].some(r => pool[i].includes(r)) ? "Evil" : "Good";
         });
-        update(ref(db, `rooms/${roomId}`), updates);
+        update(ref(db, `rooms/${currentRoom}`), updates);
     };
 
-    function renderGame(data, players) {
-        document.getElementById('lobby-screen').style.display = 'none';
-        document.getElementById('game-screen').style.display = 'block';
-        const me = players.find(p => p.id == myId);
-        
-        // クエスト表示
-        for(let i=1; i<=5; i++) {
-            const el = document.getElementById(`n${i}`);
-            el.className = 'quest-node' + (i == data.round ? ' node-active' : '');
-            if(data.history && data.history[i]) el.classList.add(data.history[i] === 'SUCCESS' ? 'node-success' : 'node-fail');
-        }
-        document.getElementById('reject-info').innerText = `否決回数: ${data.rejectCount} / 5`;
-
-        // 役職表示
-        document.getElementById('my-role-display').innerText = `役職: ${me.role}`;
-        let skill = "特になし";
-        if(me.role === "マーリン") skill = "邪悪: " + players.filter(p => p.side === "Evil" && p.role !== "モードレッド").map(p => p.name).join(", ");
-        else if(me.role === "パーシヴァル") skill = "候補: " + players.filter(p => ["マーリン", "モルガナ"].includes(p.role)).map(p => p.name).join(", ");
-        else if(me.side === "Evil") skill = "仲間: " + players.filter(p => p.side === "Evil" && p.id != myId).map(p => p.name).join(", ");
-        document.getElementById('my-skill-display').innerText = skill;
-
-        // フェーズ管理
-        const content = document.getElementById('phase-content');
-        const isLeader = data.leaderIdx == myId;
-
-        if(data.phase === 'PROPOSING') {
-            document.getElementById('phase-title').innerText = `${players[data.leaderIdx].name}がチーム選考中`;
-            if(isLeader) {
-                content.innerHTML = players.map(p => `<div><input type="checkbox" class="team-sel" value="${p.id}"> ${p.name}</div>`).join('') + `<button class="btn" onclick="sendProposal()">提案する</button>`;
-            } else content.innerHTML = "リーダーの選択を待ってください...";
-        } 
-        else if(data.phase === 'VOTING') {
-            const teamNames = data.currentProposal.map(id => players[id].name).join(", ");
-            document.getElementById('phase-title').innerText = "チーム承認投票";
-            content.innerHTML = `<p>提案メンバー: <b>${teamNames}</b></p>` + `<div style="display:flex;gap:10px;"><button class="btn" style="background:var(--blue)" onclick="vote(true)">承認</button><button class="btn" style="background:var(--red)" onclick="vote(false)">却下</button></div>`;
-        }
-        else if(data.phase === 'MISSION') {
-            document.getElementById('phase-title').innerText = "遠征中...";
-            if(data.currentProposal.includes(String(myId))) {
-                content.innerHTML = `<p>任務を選んでください</p><div style="display:flex;gap:10px;"><button class="btn" style="background:var(--blue)" onclick="mission(true)">成功</button>` + (me.side === "Evil" ? `<button class="btn" style="background:var(--red)" onclick="mission(false)">失敗</button>` : "") + `</div>`;
-            } else content.innerHTML = "メンバーの報告を待っています...";
-        }
-    }
-
-    window.sendProposal = () => {
-        const sel = Array.from(document.querySelectorAll('.team-sel:checked')).map(el => el.value);
-        const need = questData[players.length][gameState.round - 1]; // 人数チェックを入れるならここ
-        update(ref(db, `rooms/${roomId}`), { currentProposal: sel, phase: 'VOTING', votes: {} });
-    };
-
-    window.vote = (val) => update(ref(db, `rooms/${roomId}/votes/${myId}`), val);
-    window.mission = (val) => update(ref(db, `rooms/${roomId}/missions/${myId}`), val);
 </script>
 </body>
 </html>
