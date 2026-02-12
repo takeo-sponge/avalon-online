@@ -66,7 +66,7 @@
 
 <div id="game-screen" style="display:none;" class="card">
     <h3 id="my-role-name" style="color:var(--accent); font-size:2em; margin:10px 0;"></h3>
-    <div id="role-purpose" style="font-weight:bold; margin-bottom:10px;"></div>
+    <div id="role-purpose" style="font-weight:bold; margin-bottom:15px; border-bottom:1px solid #444; padding-bottom:10px;"></div>
     <div id="role-desc" style="background:rgba(0,0,0,0.4); padding:15px; border-radius:8px; text-align:left; font-size:0.9em;"></div>
     
     <hr style="border:0; border-top:1px solid #444; margin:20px 0;">
@@ -90,10 +90,34 @@
     const db = getDatabase(app);
     let myName = "", roomId = "", myId = null;
 
+
+    // Firebase初期化などのすぐ下に追加
+window.onload = () => {
+    const savedName = localStorage.getItem('avalon_name');
+    const savedRoom = localStorage.getItem('avalon_room');
+    if (savedName && savedRoom) {
+        document.getElementById('player-name').value = savedName;
+        document.getElementById('room-id').value = savedRoom;
+        // 保存されていたら自動で参加処理
+        joinGame(localStorage.getItem('avalon_isHost') === 'true');
+    }
+};
+
+window.leaveGame = () => {
+    if(confirm("保存情報を消してタイトルに戻りますか？")) {
+        localStorage.clear();
+        location.reload();
+    }
+};
+    
     window.joinGame = async function(isHostRequest) {
         myName = document.getElementById('player-name').value.trim();
         roomId = document.getElementById('room-id').value.trim();
         if (!myName || !roomId) return alert("入力してね！");
+
+        localStorage.setItem('avalon_name', myName);
+        localStorage.setItem('avalon_room', roomId);
+        localStorage.setItem('avalon_isHost', isHostRequest);
 
         const roomRef = ref(db, `rooms/${roomId}`);
         const snap = await get(roomRef);
@@ -174,30 +198,40 @@
         document.getElementById('lobby-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'block';
         
-        // 役職表示
+        // 1. 役職と陣営の表示（たけの要望通り「正義・邪悪」をハッキリ！）
         document.getElementById('my-role-name').innerText = me.role;
-        document.getElementById('role-purpose').innerText = me.side === "Good" ? "【目的】遠征を3回成功させよ！" : "【目的】遠征を3回失敗させるか暗殺せよ！";
         
-        // 特殊情報表示
+        const sideText = me.side === "Good" ? "【正義陣営】" : "【邪悪陣営】";
+        const sideColor = me.side === "Good" ? "#3498db" : "#e74c3c"; // 青 or 赤
+        const purposeText = me.side === "Good" ? "遠征を3回成功させよ！" : "遠征を3回失敗させるか、最後にマーリンを暗殺せよ！";
+        
+        document.getElementById('role-purpose').innerHTML = `
+            <span style="color:${sideColor}; font-size:1.2em;">${sideText}</span><br>
+            <span style="font-size:0.8em; opacity:0.8;">${purposeText}</span>
+        `;
+
+        // 2. スキル説明の表示（情報が見えるように！）
         let info = "";
         if (me.role === "マーリン") {
             const evils = all.filter(p => p.side === "Evil" && p.role !== "モードレッド").map(p => p.name);
-            info = `【見えている邪悪】: ${evils.join(", ")}`;
+            info = `<b>🔮 予見した邪悪な者:</b><br>${evils.length > 0 ? evils.join(", ") : "なし"}<br><small>※モードレッドの正体は見えません</small>`;
         } else if (me.role === "パーシヴァル") {
-            const targets = all.filter(p => ["マーリン", "モルガナ"].includes(p.role)).map(p => p.name);
-            info = `【マーリン候補】: ${targets.join(", ")}`;
-        } else if (me.side === "Evil" && me.role !== "オベロン") {
-            const friends = all.filter(p => p.side === "Evil" && p.role !== "オベロン" && p.id != myId).map(p => p.name);
-            info = `【邪悪な仲間】: ${friends.join(", ")}`;
+            const targets = all.filter(p => p.role === "マーリン" || p.role === "モルガナ").map(p => p.name);
+            info = `<b>✨ マーリン候補:</b><br>${targets.join(", ")}<br><small>※一方はモルガナ（邪悪）です</small>`;
+        } else if (me.side === "Evil") {
+            const friends = all.filter(p => p.side === "Evil" && p.id != myId && p.role !== "オベロン").map(p => p.name);
+            info = `<b>😈 邪悪な仲間:</b><br>${friends.length > 0 ? friends.join(", ") : "なし"}<br><small>※オベロンはお互いに見えません</small>`;
+        } else {
+            info = "特別な力はありません。話し合いの中で邪悪を見つけ出しましょう。";
         }
-        document.getElementById('role-desc').innerHTML = info || "あなたは一般の陣営です。";
+        document.getElementById('role-desc').innerHTML = info;
 
-        // --- フェーズ管理UI ---
+        // 3. フェーズ管理UI（提案や投票のボタンを出す場所）
         const actionArea = document.getElementById('action-area');
         const waitingMsg = document.getElementById('waiting-msg');
 
         if (!data.phase || data.phase === 'PROPOSING') {
-            waitingMsg.innerText = `リーダー ${leaderName} がメンバーを選んでいます...`;
+            waitingMsg.innerText = `リーダー: ${leaderName}`;
             if (isLeader) {
                 actionArea.innerHTML = `
                     <h4 style="margin:0 0 10px 0;">遠征メンバーを選んでください</h4>
@@ -207,7 +241,7 @@
                     <button class="btn" onclick="sendProposal()">提案を確定する</button>
                 `;
             } else {
-                actionArea.innerHTML = "";
+                actionArea.innerHTML = "<p>リーダーの提案を待っています...</p>";
             }
         } 
         else if (data.phase === 'VOTING') {
@@ -220,17 +254,37 @@
                     <div style="background:rgba(255,255,255,0.1); padding:15px; border-radius:10px;">
                         <p style="margin-top:0;">提案されたチーム:<br><b style="color:var(--accent)">${teamNames}</b></p>
                         <div style="display:flex; gap:10px;">
-                            <button class="btn" style="background:var(--blue)" onclick="castVote(true)">承認 (Approve)</button>
-                            <button class="btn" style="background:var(--red)" onclick="castVote(false)">却下 (Reject)</button>
+                            <button class="btn" style="background:var(--blue)" onclick="castVote(true)">承認</button>
+                            <button class="btn" style="background:var(--red)" onclick="castVote(false)">却下</button>
                         </div>
                     </div>
                 `;
             } else {
-                actionArea.innerHTML = "<p style='color:#888;'>あなたの投票は完了しました。全員の完了を待っています...</p>";
+                actionArea.innerHTML = "<p style='color:#888;'>あなたの投票は完了しました。<br>全員の完了を待っています...</p>";
+            }
+        }
+        else if (data.phase === 'MISSION') {
+            const isMember = (data.currentProposal || []).includes(String(myId));
+            waitingMsg.innerText = "遠征（ミッション）中...";
+            if (isMember) {
+                if (!data.missions || data.missions[myId] === undefined) {
+                    actionArea.innerHTML = `
+                        <div style="background:rgba(255,255,255,0.1); padding:15px; border-radius:10px; border:2px solid var(--accent);">
+                            <p>あなたは遠征メンバーです。<br>このミッションを...</p>
+                            <div style="display:flex; gap:10px;">
+                                <button class="btn" style="background:var(--blue)" onclick="castMission(true)">成功させる</button>
+                                ${me.side === 'Evil' ? `<button class="btn" style="background:var(--red)" onclick="castMission(false)">失敗させる</button>` : ''}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    actionArea.innerHTML = "<p>ミッション報告完了。結果を待っています...</p>";
+                }
+            } else {
+                actionArea.innerHTML = "<p>遠征メンバーの報告を待っています...</p>";
             }
         }
     }
-
     // --- ここから下は新しい関数として追加 ---
     window.sendProposal = () => {
         const selected = Array.from(document.querySelectorAll('.team-check:checked')).map(el => el.value);
