@@ -2,16 +2,18 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Avalon Online - Remote</title>
+    <title>Avalon Online - Custom</title>
     <style>
         :root { --primary: #e94560; --bg: #1a1a2e; --card: #16213e; --accent: #f1c40f; --blue: #3498db; --red: #e74c3c; }
         body { font-family: sans-serif; background: var(--bg); color: #eee; text-align: center; padding: 20px; }
-        .card { background: var(--card); padding: 20px; border-radius: 12px; max-width: 450px; margin: auto; border: 1px solid #0f3460; }
+        .card { background: var(--card); padding: 20px; border-radius: 12px; max-width: 500px; margin: 10px auto; border: 1px solid #0f3460; }
         .btn { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: bold; }
-        input { width: 90%; padding: 12px; margin: 10px 0; background: #000; color: #fff; border: 1px solid #444; border-radius: 4px; }
-        .player-list { text-align: left; margin: 20px 0; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; }
-        .status-badge { font-size: 0.8em; padding: 2px 8px; border-radius: 10px; background: var(--accent); color: #000; margin-left: 10px; }
-        .role-box { background: rgba(0,0,0,0.4); padding: 15px; border-radius: 8px; font-size: 0.9em; line-height: 1.6; margin-top: 10px; text-align: left; }
+        input[type="text"] { width: 90%; padding: 12px; margin: 10px 0; background: #000; color: #fff; border: 1px solid #444; border-radius: 4px; }
+        .player-list { text-align: left; margin: 15px 0; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; }
+        .config-section { background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-top: 15px; text-align: left; }
+        .role-option { display: flex; align-items: center; margin: 8px 0; font-size: 0.9em; }
+        .role-option input { margin-right: 10px; transform: scale(1.2); }
+        .error-msg { color: var(--red); font-size: 0.8em; margin-top: 5px; display: none; }
     </style>
 </head>
 <body>
@@ -19,7 +21,7 @@
 <div id="setup-screen" class="card">
     <h2>🏰 アヴァロン・オンライン</h2>
     <input type="text" id="player-name" placeholder="あなたの名前">
-    <input type="text" id="room-id" placeholder="ルーム名（例: take123）">
+    <input type="text" id="room-id" placeholder="ルーム名">
     <div style="display:flex; gap:10px;">
         <button class="btn" style="background:var(--accent); color:#000;" onclick="joinGame(true)">ルームを作成</button>
         <button class="btn" onclick="joinGame(false)">ルームに参加</button>
@@ -27,29 +29,45 @@
 </div>
 
 <div id="lobby-screen" class="card" style="display:none;">
-    <h2>🏰 待機室</h2>
-    <p>ルーム: <b id="room-display" style="color:var(--accent)">...</b></p>
+    <h3>ルーム: <span id="room-display" style="color:var(--accent)"></span></h3>
     
-    <div id="welcome-msg" style="margin-bottom:10px; font-size:0.9em; color:#bbb;"></div>
-
     <div class="player-list">
-        <h4>参加者 (<span id="player-count">0</span> / 10)</h4>
+        <h4>参加者 (<span id="player-count">0</span>)</h4>
         <ul id="list-items" style="list-style:none; padding:0;"></ul>
     </div>
 
-    <div id="host-controls" style="display:none;">
-        <p style="font-size:0.8em; color:var(--accent);">あなたはホストです。5人以上で開始できます。</p>
-        <button class="btn" style="background:var(--accent); color:#000;" onclick="setupRoles()">役職を配布して開始</button>
+    <div id="host-panel" style="display:none;" class="config-section">
+        <h4 style="margin-top:0; color:var(--accent);">👑 ホスト設定</h4>
+        
+        <label style="font-size:0.9em;">プレイ人数を選択:</label>
+        <select id="play-limit" style="width:100%; padding:8px; margin-bottom:15px; background:#000; color:#fff;">
+            <option value="5">5人 (正義3 / 邪悪2)</option>
+            <option value="6">6人 (正義4 / 邪悪2)</option>
+            <option value="7">7人 (正義4 / 邪悪3)</option>
+            <option value="8">8人 (正義5 / 邪悪3)</option>
+            <option value="9">9人 (正義6 / 邪悪3)</option>
+            <option value="10">10人 (正義6 / 邪悪4)</option>
+        </select>
+
+        <label style="font-size:0.9em;">追加役職の選択:</label>
+        <div class="role-option"><input type="checkbox" checked disabled> マーリン (必須)</div>
+        <div class="role-option"><input type="checkbox" id="role-percival"> パーシヴァル (正義)</div>
+        <div class="role-option"><input type="checkbox" checked disabled> 暗殺者 (必須)</div>
+        <div class="role-option"><input type="checkbox" id="role-morgana"> モルガナ (邪悪)</div>
+        <div class="role-option"><input type="checkbox" id="role-mordred"> モードレッド (邪悪)</div>
+        <div class="role-option"><input type="checkbox" id="role-oberon"> オベロン (邪悪)</div>
+
+        <p id="role-error" class="error-msg">⚠️ 人数と役職の数が合いません！</p>
+        <button class="btn" style="background:var(--accent); color:#000;" onclick="setupRoles()">設定を確定して開始</button>
     </div>
+    
+    <div id="guest-msg" style="display:none; font-size:0.8em; color:#888;">ホストが設定を完了するのを待っています...</div>
 </div>
 
 <div id="game-screen" style="display:none;" class="card">
-    <h3>あなたの役職</h3>
-    <h1 id="my-role-name" style="color:var(--accent);">???</h1>
+    <h3 id="my-role-name" style="color:var(--accent); font-size:2em; margin:10px 0;"></h3>
     <div id="role-purpose" style="font-weight:bold; margin-bottom:10px;"></div>
-    <div id="role-desc" class="role-box"></div>
-    <hr style="border:0; border-top:1px solid #444; margin:20px 0;">
-    <p id="waiting-msg">遠征のリーダーがチームを提案するのを待っています...</p>
+    <div id="role-desc" style="background:rgba(0,0,0,0.4); padding:15px; border-radius:8px; text-align:left; font-size:0.9em;"></div>
 </div>
 
 <script type="module">
@@ -66,131 +84,103 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+    let myName = "", roomId = "", myId = null;
 
-    let myName = "";
-    let roomId = "";
-    let myId = null;
-
-    // --- 入室・作成処理 ---
     window.joinGame = async function(isHostRequest) {
         myName = document.getElementById('player-name').value.trim();
         roomId = document.getElementById('room-id').value.trim();
-        
-        if (!myName || !roomId) return alert("名前とルーム名を入れてね！");
+        if (!myName || !roomId) return alert("入力してね！");
 
         const roomRef = ref(db, `rooms/${roomId}`);
         const snap = await get(roomRef);
-        const roomData = snap.val() || {};
+        if (isHostRequest) await update(roomRef, { hostName: myName });
 
-        // ホスト権限のチェック
-        if (isHostRequest) {
-            if (roomData.hostName && roomData.hostName !== myName) {
-                if(!confirm("他のホストが既にいます。ホストとして入り直しますか？")) return;
-            }
-            await update(roomRef, { hostName: myName });
-        }
-
-        // プレイヤーIDの確定（リロード対策）
-        const playersRef = ref(db, `rooms/${roomId}/players`);
-        const pSnap = await get(playersRef);
+        const pSnap = await get(ref(db, `rooms/${roomId}/players`));
         const players = pSnap.val() || {};
         let foundId = Object.keys(players).find(id => players[id].name === myName);
-        
         if (foundId === undefined) {
             foundId = Object.keys(players).length;
-            await set(ref(db, `rooms/${roomId}/players/${foundId}`), { id: foundId, name: myName, role: "", side: "" });
+            await set(ref(db, `rooms/${roomId}/players/${foundId}`), { id: foundId, name: myName });
         }
         myId = foundId;
-        sessionStorage.setItem('avalon_myId', myId);
-
-        // UI切り替え
         document.getElementById('setup-screen').style.display = 'none';
         document.getElementById('lobby-screen').style.display = 'block';
         document.getElementById('room-display').innerText = roomId;
-        document.getElementById('welcome-msg').innerText = `ようこそ、${myName}さん`;
 
-        // リアルタイム同期開始
-        monitorRoom();
+        onValue(roomRef, (snapshot) => {
+            const data = snapshot.val();
+            const pList = data.players ? Object.values(data.players) : [];
+            document.getElementById('player-count').innerText = pList.length;
+            document.getElementById('list-items').innerHTML = pList.map(p => `<li>👤 ${p.name} ${p.name === data.hostName ? '👑' : ''}</li>`).join('');
+            
+            if (data.hostName === myName) {
+                document.getElementById('host-panel').style.display = 'block';
+            } else {
+                document.getElementById('guest-msg').style.display = 'block';
+            }
+
+            if (data.status === 'STARTED') showGame(data);
+        });
     };
 
-    function monitorRoom() {
-        onValue(ref(db, `rooms/${roomId}`), (snapshot) => {
-            const data = snapshot.val();
-            if (!data) return;
-
-            const playerArray = data.players ? Object.values(data.players) : [];
-            
-            // プレイヤーリスト更新
-            document.getElementById('player-count').innerText = playerArray.length;
-            document.getElementById('list-items').innerHTML = playerArray.map(p => 
-                `<li>👤 ${p.name} ${p.name === data.hostName ? '<span class="status-badge">Host</span>' : ''}</li>`
-            ).join('');
-
-            // ホストボタン表示
-            if (data.hostName === myName) {
-                document.getElementById('host-controls').style.display = playerArray.length >= 5 ? 'block' : 'none';
-            }
-
-            // ゲーム開始検知
-            if (data.status === 'ROLE_DISTRIBUTED') {
-                showRoleScreen(data);
-            }
-        });
-    }
-
-    // --- 役職配布（人数に合わせて自動調整） ---
     window.setupRoles = async function() {
+        const limit = parseInt(document.getElementById('play-limit').value);
         const snap = await get(ref(db, `rooms/${roomId}/players`));
-        const players = Object.values(snap.val());
-        const count = players.length;
+        const currentPlayers = Object.values(snap.val());
 
-        // 5~10人対応の役職プール
-        const goodPool = ["マーリン", "パーシヴァル", "正義の忠臣", "正義の忠臣", "正義の忠臣", "正義の忠臣"];
-        const evilPool = ["暗殺者", "モルガナ", "モードレッド", "邪悪の手先", "邪悪の手先"];
-        
-        let gCount = (count >= 9) ? 6 : (count >= 7) ? 4 : (count === 8) ? 5 : 3;
-        let pool = [...goodPool.slice(0, gCount), ...evilPool.slice(0, count - gCount)];
-        pool = pool.sort(() => Math.random() - 0.5);
+        if (currentPlayers.length !== limit) {
+            alert(`エラー：設定された人数(${limit}人)と現在の参加人数(${currentPlayers.length}人)が一致しません！`);
+            return;
+        }
 
-        const updates = {};
-        players.forEach((p, i) => {
-            const role = pool[i];
-            const side = ["暗殺者", "モルガナ", "モードレッド", "邪悪の手先"].includes(role) ? "Evil" : "Good";
-            updates[`players/${p.id}/role`] = role;
-            updates[`players/${p.id}/side`] = side;
+        // 陣営ごとの人数定義
+        const config = { 5: [3, 2], 6: [4, 2], 7: [4, 3], 8: [5, 3], 9: [6, 3], 10: [6, 4] };
+        const [gNeed, eNeed] = config[limit];
+
+        let goodRoles = ["マーリン"];
+        if (document.getElementById('role-percival').checked) goodRoles.push("パーシヴァル");
+        while (goodRoles.length < gNeed) goodRoles.push("正義の忠臣");
+
+        let evilRoles = ["暗殺者"];
+        if (document.getElementById('role-morgana').checked) evilRoles.push("モルガナ");
+        if (document.getElementById('role-mordred').checked) evilRoles.push("モードレッド");
+        if (document.getElementById('role-oberon').checked) evilRoles.push("オベロン");
+        while (evilRoles.length < eNeed) evilRoles.push("邪悪の手先");
+
+        if (goodRoles.length > gNeed || evilRoles.length > eNeed) {
+            alert("エラー：選んだ役職の数が、陣営の定員を超えています！");
+            return;
+        }
+
+        let pool = [...goodRoles, ...evilRoles].sort(() => Math.random() - 0.5);
+        const updates = { status: 'STARTED' };
+        currentPlayers.forEach((p, i) => {
+            updates[`players/${p.id}/role`] = pool[i];
+            updates[`players/${p.id}/side`] = ["暗殺者", "モルガナ", "モードレッド", "手先", "オベロン"].some(r => pool[i].includes(r)) ? "Evil" : "Good";
         });
-        updates['status'] = 'ROLE_DISTRIBUTED';
-        updates['leaderIdx'] = 0;
-        
         update(ref(db, `rooms/${roomId}`), updates);
     };
 
-    function showRoleScreen(data) {
+    function showGame(data) {
         const me = data.players[myId];
-        const allPlayers = Object.values(data.players);
-
         document.getElementById('lobby-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'block';
         document.getElementById('my-role-name').innerText = me.role;
-
-        let purpose = me.side === "Good" ? "【目的】遠征を3回成功させよ！" : "【目的】遠征を3回失敗させるか暗殺せよ！";
-        document.getElementById('role-purpose').innerText = purpose;
-
-        // 特殊スキルの可視化ロジック
+        document.getElementById('role-purpose').innerText = me.side === "Good" ? "【目的】遠征を3回成功させよ！" : "【目的】遠征を3回失敗させるか暗殺せよ！";
+        
+        const all = Object.values(data.players);
         let info = "";
         if (me.role === "マーリン") {
-            const evils = allPlayers.filter(p => p.side === "Evil" && p.role !== "モードレッド").map(p => p.name);
-            info = `【予見した邪悪な者】<br>${evils.join(", ")}<br><small>※モードレッドは正体が見えません</small>`;
+            const evils = all.filter(p => p.side === "Evil" && p.role !== "モードレッド").map(p => p.name);
+            info = `【見えている邪悪】: ${evils.join(", ")}`;
         } else if (me.role === "パーシヴァル") {
-            const targets = allPlayers.filter(p => p.role === "マーリン" || p.role === "モルガナ").map(p => p.name);
-            info = `【マーリン候補（一方はモルガナ）】<br>${targets.join(", ")}`;
-        } else if (me.side === "Evil") {
-            const friends = allPlayers.filter(p => p.side === "Evil" && p.id != myId).map(p => p.name);
-            info = friends.length > 0 ? `【邪悪な仲間】<br>${friends.join(", ")}` : "仲間はいません（孤独な戦いです）";
-        } else {
-            info = "あなたは正義の陣営です。誰が味方か慎重に見極めましょう。";
+            const targets = all.filter(p => ["マーリン", "モルガナ"].includes(p.role)).map(p => p.name);
+            info = `【マーリン候補】: ${targets.join(", ")}`;
+        } else if (me.side === "Evil" && me.role !== "オベロン") {
+            const friends = all.filter(p => p.side === "Evil" && p.role !== "オベロン" && p.id != myId).map(p => p.name);
+            info = `【邪悪な仲間】: ${friends.join(", ")}`;
         }
-        document.getElementById('role-desc').innerHTML = info;
+        document.getElementById('role-desc').innerHTML = info || "あなたは一般の陣営です。";
     }
 </script>
 </body>
