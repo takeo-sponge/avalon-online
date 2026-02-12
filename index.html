@@ -2,287 +2,150 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Avalon - Fixed & Finalized</title>
+    <title>Avalon Online - Remote</title>
     <style>
         :root { --primary: #e94560; --bg: #1a1a2e; --card: #16213e; --accent: #f1c40f; --blue: #3498db; --red: #e74c3c; }
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--bg); color: #e9e9e9; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding-bottom: 50px; }
-        
-        .quest-tracker { display: flex; justify-content: center; gap: 10px; padding: 15px; background: rgba(0,0,0,0.8); width: 100%; border-bottom: 2px solid #333; position: sticky; top: 0; z-index: 50; }
-        .quest-node { width: 45px; height: 45px; border-radius: 50%; border: 2px solid #555; display: flex; align-items: center; justify-content: center; font-weight: bold; background: #222; }
-        .node-active { border-color: var(--accent); box-shadow: 0 0 15px var(--accent); }
-        .node-success { background: var(--blue) !important; border-color: white !important; }
-        .node-fail { background: var(--red) !important; border-color: white !important; }
-        
-        .reject-counter { background: #000; color: var(--accent); padding: 5px 15px; font-size: 0.8em; border-radius: 20px; margin-top: 10px; border: 1px solid var(--accent); }
-
-        .main-container { width: 100%; max-width: 550px; padding: 20px; }
-        .card { background: var(--card); border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #0f3460; }
-        .btn { background: var(--primary); border: none; color: white; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; }
-        .player-row { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #333; align-items: center; }
-        .info-tag { font-size: 0.8em; padding: 2px 6px; border-radius: 4px; margin-left: 5px; color: white; }
-
-        /* カスタム確認ダイアログ */
-        #custom-confirm { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 4000; display: none; align-items: center; justify-content: center; padding: 20px; }
-        .confirm-card { background: var(--card); border: 2px solid var(--accent); padding: 25px; border-radius: 15px; text-align: center; max-width: 400px; }
-
-        .log-section { background: #000; padding: 15px; border-radius: 8px; font-size: 0.82em; max-height: 300px; overflow-y: auto; border: 1px solid #444; margin-top: 10px; }
-        .log-entry { margin-bottom: 15px; padding: 10px; border-radius: 6px; background: #111; border-left: 4px solid #444; }
-        .log-mission-success { border-left-color: var(--blue); }
-        .log-mission-fail { border-left-color: var(--red); }
-        .log-header { font-weight: bold; color: var(--accent); margin-bottom: 5px; }
-        
-        #vote-result-screen, #waiting-screen, #action-choice { display: none; text-align: center; }
-        .overlay-result { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 5em; font-weight: bold; z-index: 3000; display: none; pointer-events: none; }
-        #assassin-announce { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 5000; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        body { font-family: sans-serif; background: var(--bg); color: #eee; text-align: center; padding: 20px; }
+        .card { background: var(--card); padding: 20px; border-radius: 12px; max-width: 450px; margin: auto; border: 1px solid #0f3460; }
+        .btn { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: bold; }
+        input { width: 90%; padding: 12px; margin: 10px 0; background: #000; color: #fff; border: 1px solid #444; border-radius: 4px; }
+        .player-list { text-align: left; margin: 20px 0; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; }
+        .status-badge { font-size: 0.8em; padding: 2px 8px; border-radius: 10px; background: var(--accent); color: #000; margin-left: 10px; }
     </style>
 </head>
 <body>
 
-<div class="quest-tracker">
-    <div class="quest-node" id="node-1">1</div>
-    <div class="quest-node" id="node-2">2</div>
-    <div class="quest-node" id="node-3">3</div>
-    <div class="quest-node" id="node-4">4</div>
-    <div class="quest-node" id="node-5">5</div>
-</div>
-<div id="reject-display" class="reject-counter" style="display:none;">否決回数: <span id="reject-count">0</span> / 5</div>
+<div id="lobby-screen" class="card">
+    <h2>🏰 アヴァロン・オンライン</h2>
+    <p>ルーム: <b id="room-display">...</b></p>
+    
+    <div id="join-area">
+        <input type="text" id="player-name" placeholder="あなたの名前を入力">
+        <button class="btn" onclick="joinGame()">入室する</button>
+    </div>
 
-<div id="overlay" class="overlay-result"></div>
+    <div class="player-list">
+        <h4>参加者 (<span id="player-count">0</span> / 10)</h4>
+        <ul id="list-items" style="list-style:none; padding:0;"></ul>
+    </div>
 
-<div id="custom-confirm">
-    <div class="confirm-card">
-        <h3 style="color:var(--accent);">⚠️ 最後の召集</h3>
-        <p id="confirm-msg" style="font-size:0.95em; line-height:1.6;"></p>
-        <div style="display:flex; gap:10px; margin-top:20px;">
-            <button class="btn" style="background:#555;" onclick="closeConfirm()">戻る</button>
-            <button class="btn" style="background:var(--accent); color:#000;" onclick="executeForcedMission()">出発する</button>
-        </div>
+    <div id="host-controls" style="display:none;">
+        <p style="font-size:0.8em; color:var(--accent);">あなたはホストです。5人以上で開始できます。</p>
+        <button class="btn" style="background:var(--accent); color:#000;" onclick="setupRoles()">役職を配布して開始</button>
     </div>
 </div>
 
-<div class="main-container">
-    <div id="setup-screen" class="card">
-        <h3>GM設定</h3>
-        <select id="p-count" onchange="updateSetupTable()" style="width:100%; padding:10px; margin-bottom:15px; background:#333; color:white;">
-            <option value="6">6人 (4:2)</option><option value="7">7人 (4:3)</option><option value="8">8人 (5:3)</option><option value="9">9人 (6:3)</option><option value="10">10人 (6:4)</option>
-        </select>
-        <div id="role-setup-area"></div>
-        <button class="btn" onclick="startGame()">冒険を開始</button>
-    </div>
-
-    <div id="game-screen" style="display:none;">
-        <div class="card" id="my-role-card">
-            <h3>役職: <span id="my-role-name" style="color:var(--accent)">???</span></h3>
-            <div id="role-purpose" style="font-weight:bold; color:var(--accent); margin-bottom:5px;"></div>
-            <div id="role-desc" style="font-size:0.85em; padding:10px; background:rgba(0,0,0,0.4); border-radius:5px; line-height:1.5;"></div>
-        </div>
-
-        <div id="vote-result-screen" class="card">
-            <h3 id="vote-title">投票結果</h3>
-            <div id="vote-details-list" style="text-align:left; margin-bottom:15px;"></div>
-            <button class="btn" id="vote-next-btn">次へ</button>
-        </div>
-
-        <div id="waiting-screen" class="card">
-            <h3 style="color:var(--accent);">遠征進行中...</h3>
-            <p>メンバーが聖杯を選定しています。</p>
-        </div>
-
-        <div id="vote-area" class="card" style="display:none;">
-            <h3 style="color:var(--accent);">チーム承認投票</h3>
-            <p id="proposed-members"></p>
-            <div style="display:flex; gap:10px;">
-                <button class="btn" style="background:var(--blue);" onclick="submitVote(true)">承認</button>
-                <button class="btn" style="background:var(--red);" onclick="submitVote(false)">却下</button>
-            </div>
-        </div>
-
-        <div id="action-choice" class="card" style="border:2px solid var(--accent);">
-            <h3 id="action-choice-title" style="text-align:center;">任務を選択してください</h3>
-            <div id="action-btns" style="display:flex; gap:10px;"></div>
-        </div>
-
-        <div id="proposal-area" class="card">
-            <h3 id="round-title">第1遠征</h3>
-            <div id="member-list"></div>
-            <button id="action-btn" class="btn" onclick="proposeTeam()">チームを提案する</button>
-        </div>
-
-        <h4>📜 遠征・投票履歴ログ</h4>
-        <div class="log-section" id="game-log"></div>
-    </div>
+<div id="game-screen" style="display:none;" class="card">
+    <h3>あなたの役職</h3>
+    <h1 id="my-role-name" style="color:var(--accent);">???</h1>
+    <div id="role-purpose" style="font-weight:bold; margin-bottom:10px;"></div>
+    <div id="role-desc" style="background:rgba(0,0,0,0.4); padding:15px; border-radius:8px; font-size:0.9em; line-height:1.6;"></div>
+    <hr style="border:0; border-top:1px solid #444; margin:20px 0;">
+    <p id="waiting-msg">ホストが遠征を開始するのを待っています...</p>
 </div>
 
-<div id="assassin-announce"><div id="assassin-reveal-text" style="font-size:1.8em; padding:20px;"></div></div>
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, set, onValue, update, push, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-<div id="result-screen" style="position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:6000; display:none; flex-direction:column; align-items:center; justify-content:center; padding:20px;">
-    <h1 id="winner-text" style="font-size:3em;"></h1>
-    <div class="card" style="width:100%; max-width:400px;"><table id="final-roles" style="width:100%;"></table></div>
-    <button class="btn" style="width:200px;" onclick="location.reload()">再挑戦</button>
-</div>
+    const firebaseConfig = {
+        apiKey: "AIzaSyAe0JL5gdcLJ16GTuTd9fU-MHeHaILbpCY",
+        authDomain: "avalon-online-51a54.firebaseapp.com",
+        databaseURL: "https://avalon-online-51a54-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "avalon-online-51a54",
+        appId: "1:557710503935:web:f50ee0e3e2febe328601ca"
+    };
 
-<script>
-    let players = [], currentRound = 1, leaderIdx = 0, selectedIds = [], scoreGood = 0, scoreEvil = 0;
-    let rejectCount = 0;
-    const questMap = { 6:[2,3,4,3,4], 7:[2,3,3,4,4], 8:[3,4,4,5,5], 9:[3,4,4,5,5], 10:[3,4,4,5,5] };
-    let currentLogEntry = null;
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-    function updateSetupTable() {
-        const count = parseInt(document.getElementById('p-count').value);
-        const gCount = (count >= 9) ? 6 : (count === 8) ? 5 : 4;
-        const eCount = count - gCount;
-        let html = `<p><b>正義 (${gCount})</b>: マーリン + `;
-        for(let i=0; i<gCount-1; i++) html += `<select class="g-role" onchange="checkUnique(this)"><option value="正義の忠臣">忠臣</option><option value="パーシヴァル">パーシヴァル</option></select> `;
-        html += `</p><p><b>邪悪 (${eCount})</b>: 暗殺者 + `;
-        for(let i=0; i<eCount-1; i++) html += `<select class="e-role" onchange="checkUnique(this)"><option value="邪悪の手先">手先</option><option value="モルガナ">モルガナ</option><option value="オベロン">オベロン</option><option value="モードレッド">モードレッド</option></select> `;
-        document.getElementById('role-setup-area').innerHTML = html;
-    }
+    // URLパラメータで部屋を分ける (例: index.html?room=take123)
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = urlParams.get('room') || 'default-room';
+    document.getElementById('room-display').innerText = roomId;
 
-    function checkUnique(el) {
-        let count = 0; document.querySelectorAll('select').forEach(s => { if(s.value === el.value && !s.value.includes("忠臣") && !s.value.includes("手先")) count++; });
-        if(count > 1) { alert("特殊役職は1人まで"); el.value = el.className === "g-role" ? "正義の忠臣" : "邪悪の手先"; }
-    }
+    let myId = sessionStorage.getItem('avalon_myId') || null;
+    let isHost = false;
 
-    function startGame() {
-        let pool = ["マーリン", "暗殺者"];
-        document.querySelectorAll('.g-role, .e-role').forEach(s => pool.push(s.value));
-        pool = pool.sort(() => Math.random() - 0.5);
-        players = pool.map((r, i) => ({ id: i, name: i === 0 ? "たけ(You)" : `NPC-${i}`, role: r, side: ["暗殺者", "モルガナ", "オベロン", "モードレッド", "邪悪の手先"].includes(r) ? "Evil" : "Good" }));
-        document.getElementById('setup-screen').style.display = 'none';
-        document.getElementById('game-screen').style.display = 'block';
-        document.getElementById('reject-display').style.display = 'block';
-        refreshUI();
-    }
+    // --- 入室処理 ---
+    window.joinGame = async function() {
+        const name = document.getElementById('player-name').value;
+        if (!name) return alert("名前を入れてね！");
 
-    function refreshUI() {
-        const my = players[0];
-        document.getElementById('my-role-name').innerText = my.role;
-        document.getElementById('round-title').innerText = `第${currentRound}遠征 (必要:${questMap[players.length][currentRound-1]}名)`;
-        document.getElementById('reject-count').innerText = rejectCount;
-
-        let purpose = "";
-        let desc = "";
-        if (my.side === "Good") {
-            purpose = "【目的】遠征を3回成功させよ！";
-            if (my.role === "マーリン") desc = "【スキル】邪悪なプレイヤー（モードレッド以外）が見えています。暗殺者にバレると逆転敗北します。";
-            else if (my.role === "パーシヴァル") desc = "【スキル】マーリンとモルガナが見えています（どちらが本物かは不明）。";
-            else desc = "【スキル】特別な力はありません。議論で邪悪を見つけ出しましょう。";
-        } else {
-            purpose = "【目的】遠征を3回失敗させるか、マーリンを暗殺せよ！";
-            if (my.role === "暗殺者") desc = "【スキル】仲間が見えています。最後にマーリンを指名できれば勝利！";
-            else if (my.role === "オベロン") desc = "【スキル】あなたは邪悪ですが、他の仲間を知ることも知られることもありません。";
-            else desc = "【スキル】仲間の邪悪なプレイヤーが見えています。遠征を阻止しましょう。";
-        }
-        document.getElementById('role-purpose').innerText = purpose;
-        document.getElementById('role-desc').innerText = desc;
-
-        document.getElementById('member-list').innerHTML = players.map((p, i) => {
-            let tag = "";
-            if(my.role === "マーリン" && p.side === "Evil" && p.role !== "モードレッド") tag = '<span class="info-tag" style="background:var(--red)">👿</span>';
-            if(my.role === "パーシヴァル" && ["マーリン", "モルガナ"].includes(p.role)) tag = '<span class="info-tag" style="background:var(--blue)">❓</span>';
-            if(my.side === "Evil" && my.role !== "オベロン" && p.side === "Evil" && p.role !== "オベロン") tag = '<span class="info-tag" style="background:var(--red)">😈</span>';
-            return `<div class="player-row"><span>${i === leaderIdx ? '🚩' : ''}${p.name} ${tag}</span><input type="checkbox" class="sel" value="${p.id}" onchange="sync()"></div>`;
-        }).join('');
-        for(let i=1; i<=5; i++) document.getElementById(`node-${i}`).classList.toggle('node-active', i === currentRound);
-    }
-
-    function sync() { selectedIds = Array.from(document.querySelectorAll('.sel:checked')).map(el => parseInt(el.value)); }
-
-    function proposeTeam() {
-        if(selectedIds.length !== questMap[players.length][currentRound-1]) return alert("人数が違います");
+        const playersRef = ref(db, `rooms/${roomId}/players`);
+        const snapshot = await get(playersRef);
+        const players = snapshot.val() || {};
         
-        const teamNames = selectedIds.map(id => players[id].name).join(", ");
-        currentLogEntry = { round: currentRound, leader: players[leaderIdx].name, team: teamNames, votes: [], isApproved: false };
+        const newId = Object.keys(players).length;
+        const playerObj = { id: newId, name: name, role: "", side: "" };
+        
+        await set(ref(db, `rooms/${roomId}/players/${newId}`), playerObj);
+        myId = newId;
+        sessionStorage.setItem('avalon_myId', myId);
+        document.getElementById('join-area').innerHTML = `<p>✅ 入室完了：${name}さん</p>`;
+    };
 
-        if(rejectCount >= 4) {
-            // カスタム確認ダイアログの表示
-            document.getElementById('confirm-msg').innerHTML = `これが5回目の提案です。<br><br><b>メンバー: [ ${teamNames} ]</b><br><br>投票なしで強制出発となりますが、よろしいですか？`;
-            document.getElementById('custom-confirm').style.display = 'flex';
-        } else {
-            document.getElementById('proposal-area').style.display = 'none';
-            document.getElementById('vote-area').style.display = 'block';
-            document.getElementById('proposed-members').innerText = "提案チーム: " + currentLogEntry.team;
+    // --- プレイヤーリストのリアルタイム同期 ---
+    onValue(ref(db, `rooms/${roomId}/players`), (snapshot) => {
+        const players = snapshot.val() || {};
+        const playerArray = Object.values(players);
+        const list = document.getElementById('list-items');
+        
+        list.innerHTML = playerArray.map(p => `<li>👤 ${p.name} ${p.id == 0 ? '<span class="status-badge">Host</span>' : ''}</li>`).join('');
+        document.getElementById('player-count').innerText = playerArray.length;
+
+        // 自分がホスト（ID=0）ならボタンを表示
+        if (myId == 0) {
+            isHost = true;
+            if (playerArray.length >= 5) {
+                document.getElementById('host-controls').style.display = 'block';
+            }
         }
-    }
+    });
 
-    function closeConfirm() {
-        document.getElementById('custom-confirm').style.display = 'none';
-    }
+    // --- 役職配布（ホストのみ実行） ---
+    window.setupRoles = async function() {
+        const snapshot = await get(ref(db, `rooms/${roomId}/players`));
+        const players = Object.values(snapshot.val());
+        const count = players.length;
 
-    function executeForcedMission() {
-        closeConfirm();
-        currentLogEntry.isApproved = true;
-        currentLogEntry.voteCount = "強制出発";
-        startMission();
-    }
+        // 人数に応じた役職プール作成（簡易版：6人想定）
+        let roles = ["マーリン", "暗殺者", "正義の忠臣", "正義の忠臣", "邪悪の手先", "正義の忠臣"];
+        roles = roles.slice(0, count).sort(() => Math.random() - 0.5);
 
-    function submitVote(myApp) {
-        let apps = 0; let details = [];
+        const updates = {};
         players.forEach((p, i) => {
-            let vote = (i === 0) ? myApp : (Math.random() > 0.45);
-            if(vote) apps++;
-            details.push(`${p.name}:${vote ? "承認" : "却下"}`);
-            currentLogEntry.votes.push({ name: p.name, vote: vote ? "承認" : "却下" });
+            const role = roles[i];
+            const side = ["暗殺者", "邪悪の手先"].includes(role) ? "Evil" : "Good";
+            updates[`players/${p.id}/role`] = role;
+            updates[`players/${p.id}/side`] = side;
         });
-        currentLogEntry.isApproved = apps > players.length / 2;
-        currentLogEntry.voteCount = `${apps}/${players.length}`;
-        document.getElementById('vote-area').style.display = 'none';
-        document.getElementById('vote-result-screen').style.display = 'block';
-        document.getElementById('vote-title').innerText = currentLogEntry.isApproved ? "✅ チーム承認" : "❌ チーム却下";
-        document.getElementById('vote-details-list').innerHTML = details.join("<br>");
-        document.getElementById('vote-next-btn').onclick = () => {
-            document.getElementById('vote-result-screen').style.display = 'none';
-            if(currentLogEntry.isApproved) { startMission(); } else { writeLogToScreen(false); rejectCount++; leaderIdx = (leaderIdx + 1) % players.length; document.getElementById('proposal-area').style.display = 'block'; refreshUI(); }
-        };
+        updates['status'] = 'ROLE_DISTRIBUTED';
+        
+        update(ref(db, `rooms/${roomId}`), updates);
+    };
+
+    // --- ゲーム状態の監視 ---
+    onValue(ref(db, `rooms/${roomId}/status`), (snapshot) => {
+        const status = snapshot.val();
+        if (status === 'ROLE_DISTRIBUTED') {
+            showRoleScreen();
+        }
+    });
+
+    async function showRoleScreen() {
+        const snapshot = await get(ref(db, `rooms/${roomId}/players/${myId}`));
+        const me = snapshot.val();
+
+        document.getElementById('lobby-screen').style.display = 'none';
+        document.getElementById('game-screen').style.display = 'block';
+        document.getElementById('my-role-name').innerText = me.role;
+
+        // 役職説明（デバッグ版から移植）
+        let purpose = me.side === "Good" ? "【目的】遠征を3回成功させよ！" : "【目的】遠征を3回失敗させるか暗殺せよ！";
+        document.getElementById('role-purpose').innerText = purpose;
+        document.getElementById('role-desc').innerText = "※ここに仲間の情報や詳細スキルが表示されるよう、次のステップで拡張します。";
     }
-    function startMission() {
-        document.getElementById('proposal-area').style.display = 'none'; rejectCount = 0; 
-        if(selectedIds.includes(0)) {
-            const my = players[0]; document.getElementById('action-choice').style.display = 'block';
-            let btns = `<button class="btn" style="background:var(--blue);" onclick="handleMissionAction(true)">成功</button>`;
-            if(my.side === "Evil") btns += `<button class="btn" style="background:var(--red);" onclick="handleMissionAction(false)">失敗</button>`;
-            document.getElementById('action-btns').innerHTML = btns;
-        } else { document.getElementById('waiting-screen').style.display = 'block'; setTimeout(() => processNPCMission(), 2000); }
-    }
-    function handleMissionAction(isSuccess) {
-        document.getElementById('action-choice').style.display = 'none'; document.getElementById('waiting-screen').style.display = 'block';
-        setTimeout(() => { let f = selectedIds.filter(id => id !== 0 && players[id].side === "Evil" && Math.random() > 0.45).length; showMissionResult(isSuccess ? f : f + 1); }, 1000);
-    }
-    function processNPCMission() { let f = selectedIds.filter(id => players[id].side === "Evil" && Math.random() > 0.45).length; showMissionResult(f); }
-    function showMissionResult(fails) {
-        document.getElementById('waiting-screen').style.display = 'none';
-        let success = (currentRound === 4 && players.length >= 7) ? (fails < 2) : (fails === 0);
-        currentLogEntry.missionSuccess = success; currentLogEntry.failCards = fails;
-        const ov = document.getElementById('overlay'); ov.innerText = success ? "SUCCESS" : "FAIL"; ov.style.color = success ? "var(--blue)" : "var(--red)"; ov.style.display = "block";
-        document.getElementById(`node-${currentRound}`).classList.add(success ? 'node-success' : 'node-fail');
-        if(success) scoreGood++; else scoreEvil++;
-        writeLogToScreen(true);
-        setTimeout(() => { ov.style.display = "none"; if(scoreEvil >= 3) finalizeGame("Evil"); else if(scoreGood >= 3) startAssassinPhase(); else { currentRound++; leaderIdx = (leaderIdx + 1) % players.length; document.getElementById('proposal-area').style.display = 'block'; refreshUI(); selectedIds = []; } }, 2000);
-    }
-    function writeLogToScreen(isMissionHandled) {
-        const log = document.getElementById('game-log');
-        let statusClass = isMissionHandled ? (currentLogEntry.missionSuccess ? "log-mission-success" : "log-mission-fail") : "";
-        let missionInfo = isMissionHandled ? `<div style="color:${currentLogEntry.missionSuccess?'var(--blue)':'var(--red)'}; font-weight:bold;">➔ 遠征: ${currentLogEntry.missionSuccess?'成功':'失敗'} (${currentLogEntry.failCards})</div>` : "";
-        log.innerHTML = `<div class="log-entry ${statusClass}"><div class="log-header">R${currentLogEntry.round}: ${currentLogEntry.leader}</div><div>チーム: ${currentLogEntry.team}</div><div>投票: ${currentLogEntry.isApproved ? '承認' : '却下'} (${currentLogEntry.voteCount})</div>${missionInfo}<div class="log-vote-list">${currentLogEntry.votes.map(v => v.name + ":" + v.vote).join(" / ")}</div></div>` + log.innerHTML;
-    }
-    function startAssassinPhase() {
-        document.getElementById('proposal-area').style.display = 'none';
-        document.getElementById('game-screen').innerHTML = `<div class="card"><h3>🗡️ 暗殺フェーズ</h3><p id="ass-msg">暗殺者がマーリンを指名します。</p><div id="t-list"></div></div>`;
-        const ass = players.find(p => p.role === "暗殺者");
-        if(ass.id === 0) { document.getElementById('t-list').innerHTML = players.filter(p => p.side === "Good").map(p => `<button class="btn" onclick="assassinate(${p.id})">${p.name}</button>`).join(""); }
-        else { setTimeout(() => assassinate(players.filter(p => p.side === "Good").sort(() => Math.random() - 0.5)[0].id), 3000); }
-    }
-    function assassinate(tid) {
-        const ass = players.find(p => p.role === "暗殺者"); document.getElementById('assassin-announce').style.display = 'flex';
-        document.getElementById('assassin-reveal-text').innerHTML = `暗殺者 <b>${ass.name}</b> は<br><b>${players[tid].name}</b> を指名！`;
-        setTimeout(() => { document.getElementById('assassin-announce').style.display = 'none'; finalizeGame(players[tid].role === "マーリン" ? "AssassinWin" : "GoodWin"); }, 4000);
-    }
-    function finalizeGame(winner) {
-        document.getElementById('result-screen').style.display = 'flex';
-        const winText = document.getElementById('winner-text'); winText.innerText = winner === "GoodWin" ? "正義の勝利！" : "邪悪の勝利！"; winText.style.color = winner === "GoodWin" ? "var(--blue)" : "var(--red)";
-        document.getElementById('final-roles').innerHTML = players.map(p => `<tr><td>${p.name}</td><td style="color:${p.side==='Good'?'var(--blue)':'var(--red)'}">${p.role}</td></tr>`).join('');
-    }
-    updateSetupTable();
 </script>
 </body>
 </html>
