@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Avalon - Fixed Rules Edition</title>
+    <style>
+        :root { --primary: #e94560; --bg: #1a1a2e; --card: #16213e; --accent: #f1c40f; --blue: #3498db; --red: #e74c3c; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--bg); color: #e9e9e9; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding-bottom: 50px; }
+        
+        /* トラッカー & カウンター */
+        .quest-tracker { display: flex; justify-content: center; gap: 10px; padding: 15px; background: rgba(0,0,0,0.8); width: 100%; border-bottom: 2px solid #333; position: sticky; top: 0; z-index: 50; }
+        .quest-node { width: 45px; height: 45px; border-radius: 50%; border: 2px solid #555; display: flex; align-items: center; justify-content: center; font-weight: bold; background: #222; }
+        .node-active { border-color: var(--accent); box-shadow: 0 0 15px var(--accent); }
+        .node-success { background: var(--blue) !important; border-color: white !important; }
+        .node-fail { background: var(--red) !important; border-color: white !important; }
+        
+        .reject-counter { background: #000; color: var(--accent); padding: 5px 15px; font-size: 0.8em; border-radius: 20px; margin-top: 10px; border: 1px solid var(--accent); }
+
+        .main-container { width: 100%; max-width: 550px; padding: 20px; }
+        .card { background: var(--card); border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #0f3460; }
+        .btn { background: var(--primary); border: none; color: white; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; }
+        .player-row { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #333; align-items: center; }
+        
+        .log-section { background: #000; padding: 15px; border-radius: 8px; font-size: 0.82em; max-height: 300px; overflow-y: auto; border: 1px solid #444; margin-top: 10px; }
+        .log-entry { margin-bottom: 15px; padding: 10px; border-radius: 6px; background: #111; border-left: 4px solid #444; }
+        .log-mission-success { border-left-color: var(--blue); }
+        .log-mission-fail { border-left-color: var(--red); }
+        .log-header { font-weight: bold; color: var(--accent); margin-bottom: 5px; }
+        .log-vote-list { color: #aaa; font-size: 0.9em; line-height: 1.4; border-top: 1px solid #222; margin-top: 5px; padding-top: 5px; }
+        
+        #vote-result-screen, #waiting-screen, #action-choice { display: none; text-align: center; }
+        .overlay-result { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 5em; font-weight: bold; z-index: 3000; display: none; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+<div class="quest-tracker">
+    <div class="quest-node" id="node-1">1</div>
+    <div class="quest-node" id="node-2">2</div>
+    <div class="quest-node" id="node-3">3</div>
+    <div class="quest-node" id="node-4">4</div>
+    <div class="quest-node" id="node-5">5</div>
+</div>
+<div id="reject-display" class="reject-counter" style="display:none;">否決回数: <span id="reject-count">0</span> / 5</div>
+
+<div id="overlay" class="overlay-result"></div>
+
+<div class="main-container">
+    <div id="setup-screen" class="card">
+        <h3>GM設定</h3>
+        <select id="p-count" onchange="updateSetupTable()" style="width:100%; padding:10px; margin-bottom:15px; background:#333; color:white;">
+            <option value="6">6人 (4:2)</option><option value="7">7人 (4:3)</option><option value="8">8人 (5:3)</option><option value="9">9人 (6:3)</option><option value="10">10人 (6:4)</option>
+        </select>
+        <div id="role-setup-area"></div>
+        <button class="btn" onclick="startGame()">冒険を開始</button>
+    </div>
+
+    <div id="game-screen" style="display:none;">
+        <div class="card"><h3 id="my-role-display">役職: <span id="my-role-name" style="color:var(--accent)">???</span></h3></div>
+
+        <div id="vote-result-screen" class="card">
+            <h3 id="vote-title">投票結果</h3>
+            <div id="vote-details-list" style="text-align:left; margin-bottom:15px;"></div>
+            <button class="btn" id="vote-next-btn">次へ</button>
+        </div>
+
+        <div id="waiting-screen" class="card">
+            <h3 style="color:var(--accent);">遠征進行中...</h3>
+            <p>メンバーが聖杯を選定しています。</p>
+        </div>
+
+        <div id="vote-area" class="card" style="display:none;">
+            <h3 style="color:var(--accent);">チーム承認投票</h3>
+            <p id="proposed-members"></p>
+            <div style="display:flex; gap:10px;">
+                <button class="btn" style="background:var(--blue);" onclick="submitVote(true)">承認</button>
+                <button class="btn" style="background:var(--red);" onclick="submitVote(false)">却下</button>
+            </div>
+        </div>
+
+        <div id="action-choice" class="card" style="border:2px solid var(--accent);">
+            <h3 id="action-choice-title" style="text-align:center;">任務を選択してください</h3>
+            <div id="action-btns" style="display:flex; gap:10px;"></div>
+        </div>
+
+        <div id="proposal-area" class="card">
+            <h3 id="round-title">第1遠征</h3>
+            <div id="member-list"></div>
+            <button id="action-btn" class="btn" onclick="proposeTeam()">チームを提案する</button>
+        </div>
+
+        <h4>📜 ログ (否決5回で強制出発)</h4>
+        <div class="log-section" id="game-log"></div>
+    </div>
+</div>
+
+<div id="assassin-announce" style="position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:5000; display:none; flex-direction:column; align-items:center; justify-content:center; text-align:center;"><div id="assassin-reveal-text" style="font-size:1.8em; padding:20px;"></div></div>
+
+<div id="result-screen" style="position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:6000; display:none; flex-direction:column; align-items:center; justify-content:center; padding:20px;">
+    <h1 id="winner-text" style="font-size:3em;"></h1>
+    <div class="card" style="width:100%; max-width:400px;"><table id="final-roles" style="width:100%;"></table></div>
+    <button class="btn" style="width:200px;" onclick="location.reload()">再挑戦</button>
+</div>
+
+<script>
+    let players = [], currentRound = 1, leaderIdx = 0, selectedIds = [], scoreGood = 0, scoreEvil = 0;
+    let rejectCount = 0;
+    const questMap = { 6:[2,3,4,3,4], 7:[2,3,3,4,4], 8:[3,4,4,5,5], 9:[3,4,4,5,5], 10:[3,4,4,5,5] };
+    let currentLogEntry = null;
+
+    function updateSetupTable() {
+        const count = parseInt(document.getElementById('p-count').value);
+        const gCount = (count >= 9) ? 6 : (count === 8) ? 5 : 4;
+        const eCount = count - gCount;
+        let html = `<p><b>正義 (${gCount})</b>: マーリン + `;
+        for(let i=0; i<gCount-1; i++) html += `<select class="g-role" onchange="checkUnique(this)"><option value="正義の忠臣">忠臣</option><option value="パーシヴァル">パーシヴァル</option></select> `;
+        html += `</p><p><b>邪悪 (${eCount})</b>: 暗殺者 + `;
+        for(let i=0; i<eCount-1; i++) html += `<select class="e-role" onchange="checkUnique(this)"><option value="邪悪の手先">手先</option><option value="モルガナ">モルガナ</option><option value="オベロン">オベロン</option><option value="モードレッド">モードレッド</option></select> `;
+        document.getElementById('role-setup-area').innerHTML = html;
+    }
+
+    function checkUnique(el) {
+        let count = 0; document.querySelectorAll('select').forEach(s => { if(s.value === el.value && !s.value.includes("忠臣") && !s.value.includes("手先")) count++; });
+        if(count > 1) { alert("特殊役職は1人まで"); el.value = el.className === "g-role" ? "正義の忠臣" : "邪悪の手先"; }
+    }
+
+    function startGame() {
+        let pool = ["マーリン", "暗殺者"];
+        document.querySelectorAll('.g-role, .e-role').forEach(s => pool.push(s.value));
+        pool = pool.sort(() => Math.random() - 0.5);
+        players = pool.map((r, i) => ({ id: i, name: i === 0 ? "たけ(You)" : `NPC-${i}`, role: r, side: ["暗殺者", "モルガナ", "オベロン", "モードレッド", "邪悪の手先"].includes(r) ? "Evil" : "Good" }));
+        document.getElementById('setup-screen').style.display = 'none';
+        document.getElementById('game-screen').style.display = 'block';
+        document.getElementById('reject-display').style.display = 'block';
+        refreshUI();
+    }
+
+    function refreshUI() {
+        const my = players[0];
+        document.getElementById('my-role-name').innerText = my.role;
+        document.getElementById('round-title').innerText = `第${currentRound}遠征 (必要:${questMap[players.length][currentRound-1]}名)`;
+        document.getElementById('reject-count').innerText = rejectCount;
+
+        document.getElementById('member-list').innerHTML = players.map((p, i) => {
+            let tag = "";
+            if(my.role === "マーリン" && p.side === "Evil" && p.role !== "モードレッド") tag = '<span style="color:var(--red)">👿</span>';
+            if(my.role === "パーシヴァル" && ["マーリン", "モルガナ"].includes(p.role)) tag = '<span style="color:var(--blue)">❓</span>';
+            if(my.side === "Evil" && my.role !== "オベロン" && p.side === "Evil" && p.role !== "オベロン") tag = '<span style="color:var(--red)">😈</span>';
+            return `<div class="player-row"><span>${i === leaderIdx ? '🚩' : ''}${p.name} ${tag}</span><input type="checkbox" class="sel" value="${p.id}" onchange="sync()"></div>`;
+        }).join('');
+        for(let i=1; i<=5; i++) document.getElementById(`node-${i}`).classList.toggle('node-active', i === currentRound);
+    }
+
+    function sync() { selectedIds = Array.from(document.querySelectorAll('.sel:checked')).map(el => parseInt(el.value)); }
+
+    function proposeTeam() {
+        if(selectedIds.length !== questMap[players.length][currentRound-1]) return alert("人数が違います");
+        currentLogEntry = { round: currentRound, leader: players[leaderIdx].name, team: selectedIds.map(id => players[id].name).join(", "), votes: [], isApproved: false };
+
+        if(rejectCount >= 4) {
+            alert("5人目のリーダーです。投票なしで遠征を開始します。");
+            currentLogEntry.isApproved = true;
+            currentLogEntry.voteCount = "強制出発";
+            startMission();
+        } else {
+            document.getElementById('proposal-area').style.display = 'none';
+            document.getElementById('vote-area').style.display = 'block';
+            document.getElementById('proposed-members').innerText = "提案: " + currentLogEntry.team;
+        }
+    }
+
+    function submitVote(myApp) {
+        let apps = 0; let details = [];
+        players.forEach((p, i) => {
+            let vote = (i === 0) ? myApp : (Math.random() > 0.45);
+            if(vote) apps++;
+            let vText = vote ? "承認" : "却下";
+            details.push(`${p.name}:${vText}`);
+            currentLogEntry.votes.push({ name: p.name, vote: vText });
+        });
+        
+        // 【修正】同数の場合は否決 (apps > players.length / 2)
+        currentLogEntry.isApproved = apps > players.length / 2;
+        currentLogEntry.voteCount = `${apps}/${players.length}`;
+
+        document.getElementById('vote-area').style.display = 'none';
+        document.getElementById('vote-result-screen').style.display = 'block';
+        document.getElementById('vote-title').innerText = currentLogEntry.isApproved ? "✅ 承認" : "❌ 却下";
+        document.getElementById('vote-details-list').innerHTML = details.join("<br>");
+        
+        document.getElementById('vote-next-btn').onclick = () => {
+            document.getElementById('vote-result-screen').style.display = 'none';
+            if(currentLogEntry.isApproved) {
+                startMission();
+            } else {
+                writeLogToScreen(false);
+                rejectCount++;
+                leaderIdx = (leaderIdx + 1) % players.length;
+                document.getElementById('proposal-area').style.display = 'block';
+                refreshUI();
+            }
+        };
+    }
+
+    function startMission() {
+        document.getElementById('proposal-area').style.display = 'none';
+        rejectCount = 0; // 遠征出発でカウンターリセット
+
+        if(selectedIds.includes(0)) {
+            // 自分が選ばれた場合
+            const my = players[0];
+            document.getElementById('action-choice').style.display = 'block';
+            let btns = `<button class="btn" style="background:var(--blue);" onclick="handleMissionAction(true)">成功</button>`;
+            if(my.side === "Evil") {
+                btns += `<button class="btn" style="background:var(--red);" onclick="handleMissionAction(false)">失敗</button>`;
+            }
+            document.getElementById('action-btns').innerHTML = btns;
+        } else {
+            document.getElementById('waiting-screen').style.display = 'block';
+            setTimeout(() => processNPCMission(), 2000);
+        }
+    }
+
+    function handleMissionAction(isSuccess) {
+        document.getElementById('action-choice').style.display = 'none';
+        document.getElementById('waiting-screen').style.display = 'block';
+        setTimeout(() => {
+            let f = selectedIds.filter(id => id !== 0 && players[id].side === "Evil" && Math.random() > 0.45).length;
+            showMissionResult(isSuccess ? f : f + 1);
+        }, 1000);
+    }
+
+    function processNPCMission() {
+        let f = selectedIds.filter(id => players[id].side === "Evil" && Math.random() > 0.45).length;
+        showMissionResult(f);
+    }
+
+    function showMissionResult(fails) {
+        document.getElementById('waiting-screen').style.display = 'none';
+        let success = (currentRound === 4 && players.length >= 7) ? (fails < 2) : (fails === 0);
+        currentLogEntry.missionSuccess = success;
+        currentLogEntry.failCards = fails;
+        
+        const ov = document.getElementById('overlay');
+        ov.innerText = success ? "SUCCESS" : "FAIL"; ov.style.color = success ? "var(--blue)" : "var(--red)";
+        ov.style.display = "block";
+        document.getElementById(`node-${currentRound}`).classList.add(success ? 'node-success' : 'node-fail');
+        if(success) scoreGood++; else scoreEvil++;
+        
+        writeLogToScreen(true);
+
+        setTimeout(() => {
+            ov.style.display = "none";
+            if(scoreEvil >= 3) finalizeGame("Evil");
+            else if(scoreGood >= 3) startAssassinPhase();
+            else { currentRound++; leaderIdx = (leaderIdx + 1) % players.length; document.getElementById('proposal-area').style.display = 'block'; refreshUI(); selectedIds = []; }
+        }, 2000);
+    }
+
+    function writeLogToScreen(isMissionHandled) {
+        const log = document.getElementById('game-log');
+        let statusClass = isMissionHandled ? (currentLogEntry.missionSuccess ? "log-mission-success" : "log-mission-fail") : "";
+        let missionInfo = isMissionHandled ? `<div style="color:${currentLogEntry.missionSuccess?'var(--blue)':'var(--red)'};">➔ 遠征: ${currentLogEntry.missionSuccess?'成功':'失敗'} (失敗:${currentLogEntry.failCards})</div>` : "";
+        let html = `<div class="log-entry ${statusClass}"><div class="log-header">R${currentLogEntry.round}: リーダー ${currentLogEntry.leader}</div><div>チーム: ${currentLogEntry.team}</div><div>投票: ${currentLogEntry.isApproved ? '承認' : '却下'} (${currentLogEntry.voteCount})</div>${missionInfo}<div class="log-vote-list">${currentLogEntry.votes.map(v => v.name + ":" + v.vote).join(" / ")}</div></div>`;
+        log.innerHTML = html + log.innerHTML;
+    }
+
+    function startAssassinPhase() {
+        document.getElementById('proposal-area').style.display = 'none';
+        document.getElementById('game-screen').innerHTML = `<div class="card"><h3>🗡️ 暗殺フェーズ</h3><p id="ass-msg">マーリンを指名せよ</p><div id="t-list"></div></div>`;
+        const ass = players.find(p => p.role === "暗殺者");
+        if(ass.id === 0) {
+            document.getElementById('t-list').innerHTML = players.filter(p => p.side === "Good").map(p => `<button class="btn" onclick="assassinate(${p.id})">${p.name}</button>`).join("");
+        } else {
+            setTimeout(() => assassinate(players.filter(p => p.side === "Good").sort(() => Math.random() - 0.5)[0].id), 3000);
+        }
+    }
+
+    function assassinate(tid) {
+        const ass = players.find(p => p.role === "暗殺者");
+        document.getElementById('assassin-announce').style.display = 'flex';
+        document.getElementById('assassin-reveal-text').innerHTML = `暗殺者 <b>${ass.name}</b> は<br><b>${players[tid].name}</b> を指名！`;
+        setTimeout(() => finalizeGame(players[tid].role === "マーリン" ? "AssassinWin" : "GoodWin"), 4000);
+    }
+
+    function finalizeGame(winner) {
+        document.getElementById('assassin-announce').style.display = 'none';
+        document.getElementById('result-screen').style.display = 'flex';
+        const winText = document.getElementById('winner-text');
+        winText.innerText = winner === "GoodWin" ? "正義の勝利！" : "邪悪の勝利！";
+        winText.style.color = winner === "GoodWin" ? "var(--blue)" : "var(--red)";
+        document.getElementById('final-roles').innerHTML = players.map(p => `<tr><td>${p.name}</td><td style="color:${p.side==='Good'?'var(--blue)':'var(--red)'}">${p.role}</td></tr>`).join('');
+    }
+
+    updateSetupTable();
+</script>
+</body>
+</html>
