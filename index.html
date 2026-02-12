@@ -21,12 +21,15 @@
         .player-row { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #333; align-items: center; }
         .info-tag { font-size: 0.8em; padding: 2px 6px; border-radius: 4px; margin-left: 5px; color: white; }
 
+        /* カスタム確認ダイアログ */
+        #custom-confirm { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 4000; display: none; align-items: center; justify-content: center; padding: 20px; }
+        .confirm-card { background: var(--card); border: 2px solid var(--accent); padding: 25px; border-radius: 15px; text-align: center; max-width: 400px; }
+
         .log-section { background: #000; padding: 15px; border-radius: 8px; font-size: 0.82em; max-height: 300px; overflow-y: auto; border: 1px solid #444; margin-top: 10px; }
         .log-entry { margin-bottom: 15px; padding: 10px; border-radius: 6px; background: #111; border-left: 4px solid #444; }
         .log-mission-success { border-left-color: var(--blue); }
         .log-mission-fail { border-left-color: var(--red); }
         .log-header { font-weight: bold; color: var(--accent); margin-bottom: 5px; }
-        .log-vote-list { color: #aaa; font-size: 0.9em; line-height: 1.4; border-top: 1px solid #222; margin-top: 5px; padding-top: 5px; }
         
         #vote-result-screen, #waiting-screen, #action-choice { display: none; text-align: center; }
         .overlay-result { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 5em; font-weight: bold; z-index: 3000; display: none; pointer-events: none; }
@@ -45,6 +48,17 @@
 <div id="reject-display" class="reject-counter" style="display:none;">否決回数: <span id="reject-count">0</span> / 5</div>
 
 <div id="overlay" class="overlay-result"></div>
+
+<div id="custom-confirm">
+    <div class="confirm-card">
+        <h3 style="color:var(--accent);">⚠️ 最後の召集</h3>
+        <p id="confirm-msg" style="font-size:0.95em; line-height:1.6;"></p>
+        <div style="display:flex; gap:10px; margin-top:20px;">
+            <button class="btn" style="background:#555;" onclick="closeConfirm()">戻る</button>
+            <button class="btn" style="background:var(--accent); color:#000;" onclick="executeForcedMission()">出発する</button>
+        </div>
+    </div>
+</div>
 
 <div class="main-container">
     <div id="setup-screen" class="card">
@@ -146,19 +160,18 @@
         document.getElementById('round-title').innerText = `第${currentRound}遠征 (必要:${questMap[players.length][currentRound-1]}名)`;
         document.getElementById('reject-count').innerText = rejectCount;
 
-        // --- スキルと目的の表記 ---
         let purpose = "";
         let desc = "";
         if (my.side === "Good") {
             purpose = "【目的】遠征を3回成功させよ！";
-            if (my.role === "マーリン") desc = "【スキル】邪悪なプレイヤー（モードレッド以外）が誰か見えています。暗殺者にバレると逆転敗北します。";
-            else if (my.role === "パーシヴァル") desc = "【スキル】マーリンとモルガナの2人が誰か見えています。どちらが本物かは分かりません。";
-            else desc = "【スキル】特別な力はありません。議論で邪悪を見つけ出し、遠征を成功させましょう。";
+            if (my.role === "マーリン") desc = "【スキル】邪悪なプレイヤー（モードレッド以外）が見えています。暗殺者にバレると逆転敗北します。";
+            else if (my.role === "パーシヴァル") desc = "【スキル】マーリンとモルガナが見えています（どちらが本物かは不明）。";
+            else desc = "【スキル】特別な力はありません。議論で邪悪を見つけ出しましょう。";
         } else {
-            purpose = "【目的】遠征を3回失敗させるか、最後にマーリンを暗殺せよ！";
-            if (my.role === "暗殺者") desc = "【スキル】仲間の邪悪なプレイヤー（オベロン以外）が見えています。最後にマーリンを指名できれば勝利！";
-            else if (my.role === "オベロン") desc = "【スキル】あなたは邪悪ですが、他の仲間を知ることも、知られることもありません。";
-            else desc = "【スキル】仲間の邪悪なプレイヤー（オベロン以外）が見えています。協力して遠征を阻止しましょう。";
+            purpose = "【目的】遠征を3回失敗させるか、マーリンを暗殺せよ！";
+            if (my.role === "暗殺者") desc = "【スキル】仲間が見えています。最後にマーリンを指名できれば勝利！";
+            else if (my.role === "オベロン") desc = "【スキル】あなたは邪悪ですが、他の仲間を知ることも知られることもありません。";
+            else desc = "【スキル】仲間の邪悪なプレイヤーが見えています。遠征を阻止しましょう。";
         }
         document.getElementById('role-purpose').innerText = purpose;
         document.getElementById('role-desc').innerText = desc;
@@ -182,12 +195,9 @@
         currentLogEntry = { round: currentRound, leader: players[leaderIdx].name, team: teamNames, votes: [], isApproved: false };
 
         if(rejectCount >= 4) {
-            // 5人目の最終確認
-            if (confirm(`これが5回目の提案です。投票なしでこのメンバー [ ${teamNames} ] で遠征を開始しますがよろしいですか？`)) {
-                currentLogEntry.isApproved = true;
-                currentLogEntry.voteCount = "強制出発";
-                startMission();
-            }
+            // カスタム確認ダイアログの表示
+            document.getElementById('confirm-msg').innerHTML = `これが5回目の提案です。<br><br><b>メンバー: [ ${teamNames} ]</b><br><br>投票なしで強制出発となりますが、よろしいですか？`;
+            document.getElementById('custom-confirm').style.display = 'flex';
         } else {
             document.getElementById('proposal-area').style.display = 'none';
             document.getElementById('vote-area').style.display = 'block';
@@ -195,15 +205,24 @@
         }
     }
 
-    // --- 以下、ミッションとログのロジック（変更なし） ---
+    function closeConfirm() {
+        document.getElementById('custom-confirm').style.display = 'none';
+    }
+
+    function executeForcedMission() {
+        closeConfirm();
+        currentLogEntry.isApproved = true;
+        currentLogEntry.voteCount = "強制出発";
+        startMission();
+    }
+
     function submitVote(myApp) {
         let apps = 0; let details = [];
         players.forEach((p, i) => {
             let vote = (i === 0) ? myApp : (Math.random() > 0.45);
             if(vote) apps++;
-            let vText = vote ? "承認" : "却下";
-            details.push(`${p.name}:${vText}`);
-            currentLogEntry.votes.push({ name: p.name, vote: vText });
+            details.push(`${p.name}:${vote ? "承認" : "却下"}`);
+            currentLogEntry.votes.push({ name: p.name, vote: vote ? "承認" : "却下" });
         });
         currentLogEntry.isApproved = apps > players.length / 2;
         currentLogEntry.voteCount = `${apps}/${players.length}`;
