@@ -2,51 +2,96 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Avalon Online - Remote</title>
+    <title>Avalon Online - Fully Synced</title>
     <style>
         :root { --primary: #e94560; --bg: #1a1a2e; --card: #16213e; --accent: #f1c40f; --blue: #3498db; --red: #e74c3c; }
-        body { font-family: sans-serif; background: var(--bg); color: #eee; text-align: center; padding: 20px; }
-        .card { background: var(--card); padding: 20px; border-radius: 12px; max-width: 450px; margin: auto; border: 1px solid #0f3460; }
-        .btn { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: bold; }
-        input { width: 90%; padding: 12px; margin: 10px 0; background: #000; color: #fff; border: 1px solid #444; border-radius: 4px; }
-        .player-list { text-align: left; margin: 20px 0; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; }
-        .status-badge { font-size: 0.8em; padding: 2px 8px; border-radius: 10px; background: var(--accent); color: #000; margin-left: 10px; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--bg); color: #e9e9e9; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding-bottom: 50px; }
+        
+        .quest-tracker { display: flex; justify-content: center; gap: 10px; padding: 15px; background: rgba(0,0,0,0.8); width: 100%; border-bottom: 2px solid #333; position: sticky; top: 0; z-index: 50; }
+        .quest-node { width: 45px; height: 45px; border-radius: 50%; border: 2px solid #555; display: flex; align-items: center; justify-content: center; font-weight: bold; background: #222; }
+        .node-active { border-color: var(--accent); box-shadow: 0 0 15px var(--accent); }
+        .node-success { background: var(--blue) !important; border-color: white !important; }
+        .node-fail { background: var(--red) !important; border-color: white !important; }
+        
+        .main-container { width: 100%; max-width: 500px; padding: 20px; }
+        .card { background: var(--card); border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #0f3460; }
+        .btn { background: var(--primary); border: none; color: white; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; }
+        .btn:disabled { background: #444; cursor: not-allowed; }
+        
+        .player-row { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #333; align-items: center; }
+        .info-tag { font-size: 0.8em; padding: 2px 6px; border-radius: 4px; margin-left: 5px; color: white; }
+
+        #custom-confirm, #overlay, #assassin-reveal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 5000; background: rgba(0,0,0,0.9); text-align: center; }
+        .confirm-card { background: var(--card); border: 2px solid var(--accent); padding: 25px; border-radius: 15px; max-width: 350px; }
     </style>
 </head>
 <body>
 
-<div id="lobby-screen" class="card">
-    <h2>🏰 アヴァロン・オンライン</h2>
-    <p>ルーム: <b id="room-display">...</b></p>
-    
-    <div id="join-area">
-        <input type="text" id="player-name" placeholder="あなたの名前を入力">
-        <button class="btn" onclick="joinGame()">入室する</button>
+<div class="quest-tracker">
+    <div class="quest-node" id="node-1">1</div>
+    <div class="quest-node" id="node-2">2</div>
+    <div class="quest-node" id="node-3">3</div>
+    <div class="quest-node" id="node-4">4</div>
+    <div class="quest-node" id="node-5">5</div>
+</div>
+
+<div class="main-container">
+    <div id="lobby-screen" class="card">
+        <h3>🏰 ロビー: <span id="room-id-display"></span></h3>
+        <div id="join-controls">
+            <input type="text" id="player-name" placeholder="名前" style="width:80%; padding:10px; margin-bottom:10px;">
+            <button class="btn" onclick="joinGame()">入室</button>
+        </div>
+        <div id="player-list-area" style="text-align:left; margin-top:20px;">
+            <h4>待機中 (<span id="p-count">0</span>)</h4>
+            <ul id="p-list"></ul>
+        </div>
+        <button id="start-btn" class="btn" style="display:none; background:var(--accent); color:#000;" onclick="dealRoles()">役職配布して開始</button>
     </div>
 
-    <div class="player-list">
-        <h4>参加者 (<span id="player-count">0</span> / 10)</h4>
-        <ul id="list-items" style="list-style:none; padding:0;"></ul>
-    </div>
+    <div id="game-screen" style="display:none;">
+        <div class="card">
+            <h3>役職: <span id="my-role" style="color:var(--accent)">-</span></h3>
+            <div id="my-purpose" style="font-weight:bold; color:var(--accent); font-size:0.9em;"></div>
+            <div id="my-skill" style="font-size:0.85em; margin-top:10px; background:rgba(0,0,0,0.3); padding:10px; border-radius:5px;"></div>
+        </div>
 
-    <div id="host-controls" style="display:none;">
-        <p style="font-size:0.8em; color:var(--accent);">あなたはホストです。5人以上で開始できます。</p>
-        <button class="btn" style="background:var(--accent); color:#000;" onclick="setupRoles()">役職を配布して開始</button>
+        <div id="interaction-area" class="card">
+            <h4 id="status-msg">リーダーの提案を待っています...</h4>
+            <div id="proposal-controls" style="display:none;">
+                <div id="member-select-list"></div>
+                <button class="btn" onclick="proposeTeam()">チームを提案する</button>
+            </div>
+            <div id="vote-controls" style="display:none;">
+                <p id="proposed-team-display"></p>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn" style="background:var(--blue)" onclick="castVote(true)">承認</button>
+                    <button class="btn" style="background:var(--red)" onclick="castVote(false)">却下</button>
+                </div>
+            </div>
+            <div id="mission-controls" style="display:none;">
+                <p>任務を選択してください</p>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn" style="background:var(--blue)" onclick="castMission(true)">成功</button>
+                    <button id="fail-btn" class="btn" style="background:var(--red)" onclick="castMission(false)">失敗</button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<div id="game-screen" style="display:none;" class="card">
-    <h3>あなたの役職</h3>
-    <h1 id="my-role-name" style="color:var(--accent);">???</h1>
-    <div id="role-purpose" style="font-weight:bold; margin-bottom:10px;"></div>
-    <div id="role-desc" style="background:rgba(0,0,0,0.4); padding:15px; border-radius:8px; font-size:0.9em; line-height:1.6;"></div>
-    <hr style="border:0; border-top:1px solid #444; margin:20px 0;">
-    <p id="waiting-msg">ホストが遠征を開始するのを待っています...</p>
+<div id="custom-confirm">
+    <div class="confirm-card">
+        <h3>⚠️ 最後の召集</h3>
+        <p id="confirm-msg"></p>
+        <button class="btn" onclick="closeConfirm()">戻る</button>
+        <button class="btn" style="background:var(--accent); color:#000;" onclick="startForcedMission()">出発</button>
+    </div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, set, onValue, update, push, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getDatabase, ref, set, onValue, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyAe0JL5gdcLJ16GTuTd9fU-MHeHaILbpCY",
@@ -58,94 +103,104 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-
-    // URLパラメータで部屋を分ける (例: index.html?room=take123)
     const urlParams = new URLSearchParams(window.location.search);
-    const roomId = urlParams.get('room') || 'default-room';
-    document.getElementById('room-display').innerText = roomId;
+    const roomId = urlParams.get('room') || 'take-room';
+    document.getElementById('room-id-display').innerText = roomId;
 
-    let myId = sessionStorage.getItem('avalon_myId') || null;
-    let isHost = false;
+    let myId = sessionStorage.getItem('avalon_id');
+    let gameState = {};
 
-    // --- 入室処理 ---
-    window.joinGame = async function() {
+    window.joinGame = async () => {
         const name = document.getElementById('player-name').value;
-        if (!name) return alert("名前を入れてね！");
-
-        const playersRef = ref(db, `rooms/${roomId}/players`);
-        const snapshot = await get(playersRef);
-        const players = snapshot.val() || {};
-        
-        const newId = Object.keys(players).length;
-        const playerObj = { id: newId, name: name, role: "", side: "" };
-        
-        await set(ref(db, `rooms/${roomId}/players/${newId}`), playerObj);
-        myId = newId;
-        sessionStorage.setItem('avalon_myId', myId);
-        document.getElementById('join-area').innerHTML = `<p>✅ 入室完了：${name}さん</p>`;
+        if(!name) return;
+        const snap = await get(ref(db, `rooms/${roomId}/players`));
+        const count = snap.exists() ? Object.keys(snap.val()).length : 0;
+        myId = count;
+        sessionStorage.setItem('avalon_id', myId);
+        await set(ref(db, `rooms/${roomId}/players/${myId}`), { id: myId, name: name });
+        document.getElementById('join-controls').innerHTML = `<p>入室中: ${name}</p>`;
     };
 
-    // --- プレイヤーリストのリアルタイム同期 ---
-    onValue(ref(db, `rooms/${roomId}/players`), (snapshot) => {
-        const players = snapshot.val() || {};
-        const playerArray = Object.values(players);
-        const list = document.getElementById('list-items');
-        
-        list.innerHTML = playerArray.map(p => `<li>👤 ${p.name} ${p.id == 0 ? '<span class="status-badge">Host</span>' : ''}</li>`).join('');
-        document.getElementById('player-count').innerText = playerArray.length;
-
-        // 自分がホスト（ID=0）ならボタンを表示
-        if (myId == 0) {
-            isHost = true;
-            if (playerArray.length >= 5) {
-                document.getElementById('host-controls').style.display = 'block';
-            }
-        }
+    onValue(ref(db, `rooms/${roomId}`), (snap) => {
+        if(!snap.exists()) return;
+        gameState = snap.val();
+        updateUI();
     });
 
-    // --- 役職配布（ホストのみ実行） ---
-    window.setupRoles = async function() {
-        const snapshot = await get(ref(db, `rooms/${roomId}/players`));
-        const players = Object.values(snapshot.val());
-        const count = players.length;
-
-        // 人数に応じた役職プール作成（簡易版：6人想定）
-        let roles = ["マーリン", "暗殺者", "正義の忠臣", "正義の忠臣", "邪悪の手先", "正義の忠臣"];
-        roles = roles.slice(0, count).sort(() => Math.random() - 0.5);
-
-        const updates = {};
-        players.forEach((p, i) => {
-            const role = roles[i];
-            const side = ["暗殺者", "邪悪の手先"].includes(role) ? "Evil" : "Good";
-            updates[`players/${p.id}/role`] = role;
-            updates[`players/${p.id}/side`] = side;
-        });
-        updates['status'] = 'ROLE_DISTRIBUTED';
+    function updateUI() {
+        const players = gameState.players ? Object.values(gameState.players) : [];
+        document.getElementById('p-count').innerText = players.length;
+        document.getElementById('p-list').innerHTML = players.map(p => `<li>${p.name} ${p.id==0?'(Host)':''}</li>`).join('');
         
+        if(myId == 0 && players.length >= 5 && !gameState.status) {
+            document.getElementById('start-btn').style.display = 'block';
+        }
+
+        if(gameState.status === "STARTED") {
+            document.getElementById('lobby-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            const me = players.find(p => p.id == myId);
+            renderRole(me, players);
+            renderGameFlow(me, players);
+        }
+    }
+
+    window.dealRoles = async () => {
+        const players = Object.values(gameState.players);
+        let roles = ["マーリン", "暗殺者", "正義の忠臣", "正義の忠臣", "邪悪の手先", "正義の忠臣", "パーシヴァル", "モルガナ"].slice(0, players.length);
+        roles.sort(() => Math.random() - 0.5);
+        
+        const updates = { status: "STARTED", round: 1, leaderIdx: 0, rejectCount: 0, scoreG: 0, scoreE: 0 };
+        players.forEach((p, i) => {
+            updates[`players/${p.id}/role`] = roles[i];
+            updates[`players/${p.id}/side`] = ["暗殺者", "手先", "モルガナ", "モードレッド"].some(r => roles[i].includes(r)) ? "Evil" : "Good";
+        });
         update(ref(db, `rooms/${roomId}`), updates);
     };
 
-    // --- ゲーム状態の監視 ---
-    onValue(ref(db, `rooms/${roomId}/status`), (snapshot) => {
-        const status = snapshot.val();
-        if (status === 'ROLE_DISTRIBUTED') {
-            showRoleScreen();
+    function renderRole(me, all) {
+        document.getElementById('my-role').innerText = me.role;
+        document.getElementById('my-purpose').innerText = me.side === "Good" ? "【目的】遠征を3回成功させよ" : "【目的】3回失敗させるか暗殺せよ";
+        
+        let skillText = "特別な力はありません。";
+        if(me.role === "マーリン") {
+            const evils = all.filter(p => p.side === "Evil" && p.role !== "モードレッド").map(p => p.name);
+            skillText = `【邪悪な者】${evils.join(", ")}`;
+        } else if(me.side === "Evil") {
+            const evils = all.filter(p => p.side === "Evil").map(p => p.name);
+            skillText = `【仲間】${evils.join(", ")}`;
         }
-    });
-
-    async function showRoleScreen() {
-        const snapshot = await get(ref(db, `rooms/${roomId}/players/${myId}`));
-        const me = snapshot.val();
-
-        document.getElementById('lobby-screen').style.display = 'none';
-        document.getElementById('game-screen').style.display = 'block';
-        document.getElementById('my-role-name').innerText = me.role;
-
-        // 役職説明（デバッグ版から移植）
-        let purpose = me.side === "Good" ? "【目的】遠征を3回成功させよ！" : "【目的】遠征を3回失敗させるか暗殺せよ！";
-        document.getElementById('role-purpose').innerText = purpose;
-        document.getElementById('role-desc').innerText = "※ここに仲間の情報や詳細スキルが表示されるよう、次のステップで拡張します。";
+        document.getElementById('my-skill').innerText = skillText;
     }
+
+    function renderGameFlow(me, all) {
+        const isLeader = (gameState.leaderIdx == myId);
+        const leaderName = all.find(p => p.id == gameState.leaderIdx).name;
+        
+        // 1. 提案フェーズ
+        if(!gameState.currentProposal) {
+            document.getElementById('status-msg').innerText = `${leaderName}がチームを選考中...`;
+            document.getElementById('proposal-controls').style.display = isLeader ? 'block' : 'none';
+            document.getElementById('member-select-list').innerHTML = all.map(p => `<div><input type="checkbox" class="p-sel" value="${p.id}"> ${p.name}</div>`).join('');
+        } 
+        // 2. 投票フェーズ
+        else if(gameState.currentProposal && !gameState.votes) {
+            document.getElementById('status-msg').innerText = "投票中...";
+            document.getElementById('proposal-controls').style.display = 'none';
+            document.getElementById('vote-controls').style.display = 'block';
+        }
+    }
+
+    window.proposeTeam = () => {
+        const selected = Array.from(document.querySelectorAll('.p-sel:checked')).map(el => el.value);
+        update(ref(db, `rooms/${roomId}/currentProposal`), selected);
+    };
+
+    window.castVote = (val) => {
+        update(ref(db, `rooms/${roomId}/votes/${myId}`), val);
+        document.getElementById('vote-controls').style.display = 'none';
+    };
+
 </script>
 </body>
 </html>
