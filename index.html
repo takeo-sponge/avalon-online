@@ -198,6 +198,10 @@ window.leaveGame = () => {
     };
 
    function showGame(data) {
+       if (!data.players || data.leaderIdx === undefined || !data.players[data.leaderIdx]) {
+            console.log("ゲームデータがまだ揃っていません...");
+            return; 
+        }
         const me = data.players[myId];
         const all = Object.values(data.players);
         const isLeader = data.leaderIdx == myId;
