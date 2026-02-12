@@ -2,12 +2,11 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Avalon - Fixed Rules Edition</title>
+    <title>Avalon - Fixed & Finalized</title>
     <style>
         :root { --primary: #e94560; --bg: #1a1a2e; --card: #16213e; --accent: #f1c40f; --blue: #3498db; --red: #e74c3c; }
         body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--bg); color: #e9e9e9; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding-bottom: 50px; }
         
-        /* トラッカー & カウンター */
         .quest-tracker { display: flex; justify-content: center; gap: 10px; padding: 15px; background: rgba(0,0,0,0.8); width: 100%; border-bottom: 2px solid #333; position: sticky; top: 0; z-index: 50; }
         .quest-node { width: 45px; height: 45px; border-radius: 50%; border: 2px solid #555; display: flex; align-items: center; justify-content: center; font-weight: bold; background: #222; }
         .node-active { border-color: var(--accent); box-shadow: 0 0 15px var(--accent); }
@@ -20,7 +19,8 @@
         .card { background: var(--card); border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #0f3460; }
         .btn { background: var(--primary); border: none; color: white; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; }
         .player-row { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #333; align-items: center; }
-        
+        .info-tag { font-size: 0.8em; padding: 2px 6px; border-radius: 4px; margin-left: 5px; color: white; }
+
         .log-section { background: #000; padding: 15px; border-radius: 8px; font-size: 0.82em; max-height: 300px; overflow-y: auto; border: 1px solid #444; margin-top: 10px; }
         .log-entry { margin-bottom: 15px; padding: 10px; border-radius: 6px; background: #111; border-left: 4px solid #444; }
         .log-mission-success { border-left-color: var(--blue); }
@@ -30,6 +30,7 @@
         
         #vote-result-screen, #waiting-screen, #action-choice { display: none; text-align: center; }
         .overlay-result { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 5em; font-weight: bold; z-index: 3000; display: none; pointer-events: none; }
+        #assassin-announce { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 5000; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
     </style>
 </head>
 <body>
@@ -56,7 +57,11 @@
     </div>
 
     <div id="game-screen" style="display:none;">
-        <div class="card"><h3 id="my-role-display">役職: <span id="my-role-name" style="color:var(--accent)">???</span></h3></div>
+        <div class="card" id="my-role-card">
+            <h3>役職: <span id="my-role-name" style="color:var(--accent)">???</span></h3>
+            <div id="role-purpose" style="font-weight:bold; color:var(--accent); margin-bottom:5px;"></div>
+            <div id="role-desc" style="font-size:0.85em; padding:10px; background:rgba(0,0,0,0.4); border-radius:5px; line-height:1.5;"></div>
+        </div>
 
         <div id="vote-result-screen" class="card">
             <h3 id="vote-title">投票結果</h3>
@@ -89,12 +94,12 @@
             <button id="action-btn" class="btn" onclick="proposeTeam()">チームを提案する</button>
         </div>
 
-        <h4>📜 ログ (否決5回で強制出発)</h4>
+        <h4>📜 遠征・投票履歴ログ</h4>
         <div class="log-section" id="game-log"></div>
     </div>
 </div>
 
-<div id="assassin-announce" style="position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:5000; display:none; flex-direction:column; align-items:center; justify-content:center; text-align:center;"><div id="assassin-reveal-text" style="font-size:1.8em; padding:20px;"></div></div>
+<div id="assassin-announce"><div id="assassin-reveal-text" style="font-size:1.8em; padding:20px;"></div></div>
 
 <div id="result-screen" style="position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:6000; display:none; flex-direction:column; align-items:center; justify-content:center; padding:20px;">
     <h1 id="winner-text" style="font-size:3em;"></h1>
@@ -141,11 +146,28 @@
         document.getElementById('round-title').innerText = `第${currentRound}遠征 (必要:${questMap[players.length][currentRound-1]}名)`;
         document.getElementById('reject-count').innerText = rejectCount;
 
+        // --- スキルと目的の表記 ---
+        let purpose = "";
+        let desc = "";
+        if (my.side === "Good") {
+            purpose = "【目的】遠征を3回成功させよ！";
+            if (my.role === "マーリン") desc = "【スキル】邪悪なプレイヤー（モードレッド以外）が誰か見えています。暗殺者にバレると逆転敗北します。";
+            else if (my.role === "パーシヴァル") desc = "【スキル】マーリンとモルガナの2人が誰か見えています。どちらが本物かは分かりません。";
+            else desc = "【スキル】特別な力はありません。議論で邪悪を見つけ出し、遠征を成功させましょう。";
+        } else {
+            purpose = "【目的】遠征を3回失敗させるか、最後にマーリンを暗殺せよ！";
+            if (my.role === "暗殺者") desc = "【スキル】仲間の邪悪なプレイヤー（オベロン以外）が見えています。最後にマーリンを指名できれば勝利！";
+            else if (my.role === "オベロン") desc = "【スキル】あなたは邪悪ですが、他の仲間を知ることも、知られることもありません。";
+            else desc = "【スキル】仲間の邪悪なプレイヤー（オベロン以外）が見えています。協力して遠征を阻止しましょう。";
+        }
+        document.getElementById('role-purpose').innerText = purpose;
+        document.getElementById('role-desc').innerText = desc;
+
         document.getElementById('member-list').innerHTML = players.map((p, i) => {
             let tag = "";
-            if(my.role === "マーリン" && p.side === "Evil" && p.role !== "モードレッド") tag = '<span style="color:var(--red)">👿</span>';
-            if(my.role === "パーシヴァル" && ["マーリン", "モルガナ"].includes(p.role)) tag = '<span style="color:var(--blue)">❓</span>';
-            if(my.side === "Evil" && my.role !== "オベロン" && p.side === "Evil" && p.role !== "オベロン") tag = '<span style="color:var(--red)">😈</span>';
+            if(my.role === "マーリン" && p.side === "Evil" && p.role !== "モードレッド") tag = '<span class="info-tag" style="background:var(--red)">👿</span>';
+            if(my.role === "パーシヴァル" && ["マーリン", "モルガナ"].includes(p.role)) tag = '<span class="info-tag" style="background:var(--blue)">❓</span>';
+            if(my.side === "Evil" && my.role !== "オベロン" && p.side === "Evil" && p.role !== "オベロン") tag = '<span class="info-tag" style="background:var(--red)">😈</span>';
             return `<div class="player-row"><span>${i === leaderIdx ? '🚩' : ''}${p.name} ${tag}</span><input type="checkbox" class="sel" value="${p.id}" onchange="sync()"></div>`;
         }).join('');
         for(let i=1; i<=5; i++) document.getElementById(`node-${i}`).classList.toggle('node-active', i === currentRound);
@@ -155,20 +177,25 @@
 
     function proposeTeam() {
         if(selectedIds.length !== questMap[players.length][currentRound-1]) return alert("人数が違います");
-        currentLogEntry = { round: currentRound, leader: players[leaderIdx].name, team: selectedIds.map(id => players[id].name).join(", "), votes: [], isApproved: false };
+        
+        const teamNames = selectedIds.map(id => players[id].name).join(", ");
+        currentLogEntry = { round: currentRound, leader: players[leaderIdx].name, team: teamNames, votes: [], isApproved: false };
 
         if(rejectCount >= 4) {
-            alert("5人目のリーダーです。投票なしで遠征を開始します。");
-            currentLogEntry.isApproved = true;
-            currentLogEntry.voteCount = "強制出発";
-            startMission();
+            // 5人目の最終確認
+            if (confirm(`これが5回目の提案です。投票なしでこのメンバー [ ${teamNames} ] で遠征を開始しますがよろしいですか？`)) {
+                currentLogEntry.isApproved = true;
+                currentLogEntry.voteCount = "強制出発";
+                startMission();
+            }
         } else {
             document.getElementById('proposal-area').style.display = 'none';
             document.getElementById('vote-area').style.display = 'block';
-            document.getElementById('proposed-members').innerText = "提案: " + currentLogEntry.team;
+            document.getElementById('proposed-members').innerText = "提案チーム: " + currentLogEntry.team;
         }
     }
 
+    // --- 以下、ミッションとログのロジック（変更なし） ---
     function submitVote(myApp) {
         let apps = 0; let details = [];
         players.forEach((p, i) => {
@@ -178,120 +205,64 @@
             details.push(`${p.name}:${vText}`);
             currentLogEntry.votes.push({ name: p.name, vote: vText });
         });
-        
-        // 【修正】同数の場合は否決 (apps > players.length / 2)
         currentLogEntry.isApproved = apps > players.length / 2;
         currentLogEntry.voteCount = `${apps}/${players.length}`;
-
         document.getElementById('vote-area').style.display = 'none';
         document.getElementById('vote-result-screen').style.display = 'block';
-        document.getElementById('vote-title').innerText = currentLogEntry.isApproved ? "✅ 承認" : "❌ 却下";
+        document.getElementById('vote-title').innerText = currentLogEntry.isApproved ? "✅ チーム承認" : "❌ チーム却下";
         document.getElementById('vote-details-list').innerHTML = details.join("<br>");
-        
         document.getElementById('vote-next-btn').onclick = () => {
             document.getElementById('vote-result-screen').style.display = 'none';
-            if(currentLogEntry.isApproved) {
-                startMission();
-            } else {
-                writeLogToScreen(false);
-                rejectCount++;
-                leaderIdx = (leaderIdx + 1) % players.length;
-                document.getElementById('proposal-area').style.display = 'block';
-                refreshUI();
-            }
+            if(currentLogEntry.isApproved) { startMission(); } else { writeLogToScreen(false); rejectCount++; leaderIdx = (leaderIdx + 1) % players.length; document.getElementById('proposal-area').style.display = 'block'; refreshUI(); }
         };
     }
-
     function startMission() {
-        document.getElementById('proposal-area').style.display = 'none';
-        rejectCount = 0; // 遠征出発でカウンターリセット
-
+        document.getElementById('proposal-area').style.display = 'none'; rejectCount = 0; 
         if(selectedIds.includes(0)) {
-            // 自分が選ばれた場合
-            const my = players[0];
-            document.getElementById('action-choice').style.display = 'block';
+            const my = players[0]; document.getElementById('action-choice').style.display = 'block';
             let btns = `<button class="btn" style="background:var(--blue);" onclick="handleMissionAction(true)">成功</button>`;
-            if(my.side === "Evil") {
-                btns += `<button class="btn" style="background:var(--red);" onclick="handleMissionAction(false)">失敗</button>`;
-            }
+            if(my.side === "Evil") btns += `<button class="btn" style="background:var(--red);" onclick="handleMissionAction(false)">失敗</button>`;
             document.getElementById('action-btns').innerHTML = btns;
-        } else {
-            document.getElementById('waiting-screen').style.display = 'block';
-            setTimeout(() => processNPCMission(), 2000);
-        }
+        } else { document.getElementById('waiting-screen').style.display = 'block'; setTimeout(() => processNPCMission(), 2000); }
     }
-
     function handleMissionAction(isSuccess) {
-        document.getElementById('action-choice').style.display = 'none';
-        document.getElementById('waiting-screen').style.display = 'block';
-        setTimeout(() => {
-            let f = selectedIds.filter(id => id !== 0 && players[id].side === "Evil" && Math.random() > 0.45).length;
-            showMissionResult(isSuccess ? f : f + 1);
-        }, 1000);
+        document.getElementById('action-choice').style.display = 'none'; document.getElementById('waiting-screen').style.display = 'block';
+        setTimeout(() => { let f = selectedIds.filter(id => id !== 0 && players[id].side === "Evil" && Math.random() > 0.45).length; showMissionResult(isSuccess ? f : f + 1); }, 1000);
     }
-
-    function processNPCMission() {
-        let f = selectedIds.filter(id => players[id].side === "Evil" && Math.random() > 0.45).length;
-        showMissionResult(f);
-    }
-
+    function processNPCMission() { let f = selectedIds.filter(id => players[id].side === "Evil" && Math.random() > 0.45).length; showMissionResult(f); }
     function showMissionResult(fails) {
         document.getElementById('waiting-screen').style.display = 'none';
         let success = (currentRound === 4 && players.length >= 7) ? (fails < 2) : (fails === 0);
-        currentLogEntry.missionSuccess = success;
-        currentLogEntry.failCards = fails;
-        
-        const ov = document.getElementById('overlay');
-        ov.innerText = success ? "SUCCESS" : "FAIL"; ov.style.color = success ? "var(--blue)" : "var(--red)";
-        ov.style.display = "block";
+        currentLogEntry.missionSuccess = success; currentLogEntry.failCards = fails;
+        const ov = document.getElementById('overlay'); ov.innerText = success ? "SUCCESS" : "FAIL"; ov.style.color = success ? "var(--blue)" : "var(--red)"; ov.style.display = "block";
         document.getElementById(`node-${currentRound}`).classList.add(success ? 'node-success' : 'node-fail');
         if(success) scoreGood++; else scoreEvil++;
-        
         writeLogToScreen(true);
-
-        setTimeout(() => {
-            ov.style.display = "none";
-            if(scoreEvil >= 3) finalizeGame("Evil");
-            else if(scoreGood >= 3) startAssassinPhase();
-            else { currentRound++; leaderIdx = (leaderIdx + 1) % players.length; document.getElementById('proposal-area').style.display = 'block'; refreshUI(); selectedIds = []; }
-        }, 2000);
+        setTimeout(() => { ov.style.display = "none"; if(scoreEvil >= 3) finalizeGame("Evil"); else if(scoreGood >= 3) startAssassinPhase(); else { currentRound++; leaderIdx = (leaderIdx + 1) % players.length; document.getElementById('proposal-area').style.display = 'block'; refreshUI(); selectedIds = []; } }, 2000);
     }
-
     function writeLogToScreen(isMissionHandled) {
         const log = document.getElementById('game-log');
         let statusClass = isMissionHandled ? (currentLogEntry.missionSuccess ? "log-mission-success" : "log-mission-fail") : "";
-        let missionInfo = isMissionHandled ? `<div style="color:${currentLogEntry.missionSuccess?'var(--blue)':'var(--red)'};">➔ 遠征: ${currentLogEntry.missionSuccess?'成功':'失敗'} (失敗:${currentLogEntry.failCards})</div>` : "";
-        let html = `<div class="log-entry ${statusClass}"><div class="log-header">R${currentLogEntry.round}: リーダー ${currentLogEntry.leader}</div><div>チーム: ${currentLogEntry.team}</div><div>投票: ${currentLogEntry.isApproved ? '承認' : '却下'} (${currentLogEntry.voteCount})</div>${missionInfo}<div class="log-vote-list">${currentLogEntry.votes.map(v => v.name + ":" + v.vote).join(" / ")}</div></div>`;
-        log.innerHTML = html + log.innerHTML;
+        let missionInfo = isMissionHandled ? `<div style="color:${currentLogEntry.missionSuccess?'var(--blue)':'var(--red)'}; font-weight:bold;">➔ 遠征: ${currentLogEntry.missionSuccess?'成功':'失敗'} (${currentLogEntry.failCards})</div>` : "";
+        log.innerHTML = `<div class="log-entry ${statusClass}"><div class="log-header">R${currentLogEntry.round}: ${currentLogEntry.leader}</div><div>チーム: ${currentLogEntry.team}</div><div>投票: ${currentLogEntry.isApproved ? '承認' : '却下'} (${currentLogEntry.voteCount})</div>${missionInfo}<div class="log-vote-list">${currentLogEntry.votes.map(v => v.name + ":" + v.vote).join(" / ")}</div></div>` + log.innerHTML;
     }
-
     function startAssassinPhase() {
         document.getElementById('proposal-area').style.display = 'none';
-        document.getElementById('game-screen').innerHTML = `<div class="card"><h3>🗡️ 暗殺フェーズ</h3><p id="ass-msg">マーリンを指名せよ</p><div id="t-list"></div></div>`;
+        document.getElementById('game-screen').innerHTML = `<div class="card"><h3>🗡️ 暗殺フェーズ</h3><p id="ass-msg">暗殺者がマーリンを指名します。</p><div id="t-list"></div></div>`;
         const ass = players.find(p => p.role === "暗殺者");
-        if(ass.id === 0) {
-            document.getElementById('t-list').innerHTML = players.filter(p => p.side === "Good").map(p => `<button class="btn" onclick="assassinate(${p.id})">${p.name}</button>`).join("");
-        } else {
-            setTimeout(() => assassinate(players.filter(p => p.side === "Good").sort(() => Math.random() - 0.5)[0].id), 3000);
-        }
+        if(ass.id === 0) { document.getElementById('t-list').innerHTML = players.filter(p => p.side === "Good").map(p => `<button class="btn" onclick="assassinate(${p.id})">${p.name}</button>`).join(""); }
+        else { setTimeout(() => assassinate(players.filter(p => p.side === "Good").sort(() => Math.random() - 0.5)[0].id), 3000); }
     }
-
     function assassinate(tid) {
-        const ass = players.find(p => p.role === "暗殺者");
-        document.getElementById('assassin-announce').style.display = 'flex';
+        const ass = players.find(p => p.role === "暗殺者"); document.getElementById('assassin-announce').style.display = 'flex';
         document.getElementById('assassin-reveal-text').innerHTML = `暗殺者 <b>${ass.name}</b> は<br><b>${players[tid].name}</b> を指名！`;
-        setTimeout(() => finalizeGame(players[tid].role === "マーリン" ? "AssassinWin" : "GoodWin"), 4000);
+        setTimeout(() => { document.getElementById('assassin-announce').style.display = 'none'; finalizeGame(players[tid].role === "マーリン" ? "AssassinWin" : "GoodWin"); }, 4000);
     }
-
     function finalizeGame(winner) {
-        document.getElementById('assassin-announce').style.display = 'none';
         document.getElementById('result-screen').style.display = 'flex';
-        const winText = document.getElementById('winner-text');
-        winText.innerText = winner === "GoodWin" ? "正義の勝利！" : "邪悪の勝利！";
-        winText.style.color = winner === "GoodWin" ? "var(--blue)" : "var(--red)";
+        const winText = document.getElementById('winner-text'); winText.innerText = winner === "GoodWin" ? "正義の勝利！" : "邪悪の勝利！"; winText.style.color = winner === "GoodWin" ? "var(--blue)" : "var(--red)";
         document.getElementById('final-roles').innerHTML = players.map(p => `<tr><td>${p.name}</td><td style="color:${p.side==='Good'?'var(--blue)':'var(--red)'}">${p.role}</td></tr>`).join('');
     }
-
     updateSetupTable();
 </script>
 </body>
