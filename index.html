@@ -12,7 +12,6 @@
         input { width: 90%; padding: 12px; margin: 10px 0; background: #000; color: #fff; border: 1px solid #444; border-radius: 4px; }
         .p-list { text-align: left; list-style: none; padding: 0; }
         .p-item { padding: 8px; border-bottom: 1px solid #333; }
-        .info-tag { font-size: 0.8em; padding: 2px 6px; border-radius: 4px; margin-left: 5px; color: white; background: var(--red); }
     </style>
 </head>
 <body>
@@ -34,10 +33,10 @@
 
 <div id="game-screen" style="display:none;" class="card">
     <h3 id="round-info">第1遠征</h3>
-    <div style="border: 1px solid var(--accent); padding: 10px; border-radius: 8px; margin-bottom: 15px;">
+    <div style="border: 2px solid var(--accent); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
         <h2 id="my-role-name" style="color:var(--accent); margin:5px 0;">???</h2>
         <div id="my-purpose" style="font-size:0.8em; font-weight:bold; color:var(--accent);"></div>
-        <div id="my-skill" style="font-size:0.85em; margin-top:5px; opacity:0.9;"></div>
+        <div id="my-skill" style="font-size:0.85em; margin-top:10px; opacity:0.9; text-align:left; background:rgba(0,0,0,0.3); padding:8px;"></div>
     </div>
     <div id="main-action-area">
         <p id="status-msg">待機中...</p>
@@ -83,7 +82,6 @@
         const data = snapshot.val() || {};
         players = data.players ? Object.values(data.players) : [];
         
-        // ロビー更新
         document.getElementById('player-count').innerText = players.length;
         document.getElementById('list-items').innerHTML = players.map(p => `<li class="p-item">👤 ${p.name} ${p.id == 0 ? '👑' : ''}</li>`).join('');
         
@@ -91,7 +89,6 @@
             document.getElementById('host-controls').style.display = 'block';
         }
 
-        // ゲーム開始後の処理
         if (data.status === 'STARTED') {
             showGameScreen(data);
         }
@@ -99,11 +96,17 @@
 
     window.setupRoles = async function() {
         const count = players.length;
-        // 10人まで対応した役職リスト
-        let pool = [
-            "マーリン", "暗殺者", "パーシヴァル", "モルガナ", "正義の忠臣", 
-            "邪悪の手先", "正義 de 忠臣", "正義 de 忠臣", "モードレッド", "正義 de 忠臣"
-        ].slice(0, count).sort(() => Math.random() - 0.5);
+        // 10人まで対応した役職プール（人数の合計に合わせる）
+        const goodRoles = ["マーリン", "パーシヴァル", "正義の忠臣", "正義の忠臣", "正義の忠臣", "正義の忠臣"];
+        const evilRoles = ["暗殺者", "モルガナ", "モードレッド", "オベロン", "邪悪の手先"];
+        
+        // 人数比率の決定
+        let gCount = (count >= 9) ? 6 : (count >= 7) ? 4 : 3;
+        if(count === 8) gCount = 5;
+        let eCount = count - gCount;
+
+        let pool = [...goodRoles.slice(0, gCount), ...evilRoles.slice(0, eCount)];
+        pool = pool.sort(() => Math.random() - 0.5);
 
         const updates = {};
         players.forEach((p, i) => {
@@ -114,8 +117,6 @@
         });
         updates['status'] = 'STARTED';
         updates['leaderIdx'] = 0;
-        updates['round'] = 1;
-        
         update(ref(db, `rooms/${roomId}`), updates);
     };
 
@@ -127,22 +128,20 @@
         document.getElementById('my-role-name').innerText = me.role;
         document.getElementById('my-purpose').innerText = me.side === "Good" ? "【目的】遠征を3回成功させよ！" : "【目的】3回失敗させるか暗殺せよ！";
         
-        // 特殊スキルの表示（仲間の名前など）
         let skill = "特別な力はありません。";
         const allP = Object.values(data.players);
         if (me.role === "マーリン") {
             const evils = allP.filter(p => p.side === "Evil" && p.role !== "モードレッド").map(p => p.name);
-            skill = `【邪悪な者(除モードレッド)】: ${evils.join(", ")}`;
+            skill = `【邪悪な者（除モードレッド）】: ${evils.join(", ")}`;
         } else if (me.role === "パーシヴァル") {
             const targets = allP.filter(p => ["マーリン", "モルガナ"].includes(p.role)).map(p => p.name);
             skill = `【マーリン候補】: ${targets.join(", ")}`;
-        } else if (me.side === "Evil") {
-            const evils = allP.filter(p => p.side === "Evil" && p.role !== "オベロン").map(p => p.name);
-            skill = `【邪悪の仲間】: ${evils.join(", ")}`;
+        } else if (me.side === "Evil" && me.role !== "オベロン") {
+            const evils = allP.filter(p => p.side === "Evil" && p.role !== "オベロン" && p.id != myId).map(p => p.name);
+            skill = `【仲間の邪悪】: ${evils.join(", ")}`;
         }
         document.getElementById('my-skill').innerText = skill;
 
-        // リーダーかどうかの判定
         const isLeader = data.leaderIdx == myId;
         const leaderName = data.players[data.leaderIdx].name;
         
@@ -151,15 +150,12 @@
             if (isLeader) {
                 document.getElementById('proposal-area').style.display = 'block';
                 document.getElementById('member-select').innerHTML = allP.map(p => `<div><input type="checkbox" class="p-sel" value="${p.id}"> ${p.name}</div>`).join('');
-            } else {
-                document.getElementById('proposal-area').style.display = 'none';
             }
         }
     }
 
     window.proposeTeam = () => {
         const selected = Array.from(document.querySelectorAll('.p-sel:checked')).map(el => el.value);
-        // ここに人数チェックを後で入れる
         update(ref(db, `rooms/${roomId}/currentProposal`), selected);
     };
 </script>
