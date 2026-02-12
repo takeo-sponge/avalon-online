@@ -68,6 +68,10 @@
     <h3 id="my-role-name" style="color:var(--accent); font-size:2em; margin:10px 0;"></h3>
     <div id="role-purpose" style="font-weight:bold; margin-bottom:10px;"></div>
     <div id="role-desc" style="background:rgba(0,0,0,0.4); padding:15px; border-radius:8px; text-align:left; font-size:0.9em;"></div>
+    
+    <hr style="border:0; border-top:1px solid #444; margin:20px 0;">
+    <p id="waiting-msg" style="font-size:0.9em; color:var(--accent);"></p>
+    <div id="action-area" style="margin-top:15px;"></div>
 </div>
 
 <script type="module">
@@ -161,14 +165,20 @@
         update(ref(db, `rooms/${roomId}`), updates);
     };
 
-    function showGame(data) {
+   function showGame(data) {
         const me = data.players[myId];
+        const all = Object.values(data.players);
+        const isLeader = data.leaderIdx == myId;
+        const leaderName = data.players[data.leaderIdx].name;
+
         document.getElementById('lobby-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'block';
+        
+        // 役職表示
         document.getElementById('my-role-name').innerText = me.role;
         document.getElementById('role-purpose').innerText = me.side === "Good" ? "【目的】遠征を3回成功させよ！" : "【目的】遠征を3回失敗させるか暗殺せよ！";
         
-        const all = Object.values(data.players);
+        // 特殊情報表示
         let info = "";
         if (me.role === "マーリン") {
             const evils = all.filter(p => p.side === "Evil" && p.role !== "モードレッド").map(p => p.name);
@@ -181,7 +191,61 @@
             info = `【邪悪な仲間】: ${friends.join(", ")}`;
         }
         document.getElementById('role-desc').innerHTML = info || "あなたは一般の陣営です。";
+
+        // --- フェーズ管理UI ---
+        const actionArea = document.getElementById('action-area');
+        const waitingMsg = document.getElementById('waiting-msg');
+
+        if (!data.phase || data.phase === 'PROPOSING') {
+            waitingMsg.innerText = `リーダー ${leaderName} がメンバーを選んでいます...`;
+            if (isLeader) {
+                actionArea.innerHTML = `
+                    <h4 style="margin:0 0 10px 0;">遠征メンバーを選んでください</h4>
+                    <div style="text-align:left; background:rgba(255,255,255,0.05); padding:10px; border-radius:5px;">
+                        ${all.map(p => `<div><label><input type="checkbox" class="team-check" value="${p.id}"> ${p.name}</label></div>`).join('')}
+                    </div>
+                    <button class="btn" onclick="sendProposal()">提案を確定する</button>
+                `;
+            } else {
+                actionArea.innerHTML = "";
+            }
+        } 
+        else if (data.phase === 'VOTING') {
+            const teamIds = data.currentProposal || [];
+            const teamNames = teamIds.map(id => data.players[id].name).join(", ");
+            waitingMsg.innerText = "チーム承認投票フェーズ";
+            
+            if (!data.votes || data.votes[myId] === undefined) {
+                actionArea.innerHTML = `
+                    <div style="background:rgba(255,255,255,0.1); padding:15px; border-radius:10px;">
+                        <p style="margin-top:0;">提案されたチーム:<br><b style="color:var(--accent)">${teamNames}</b></p>
+                        <div style="display:flex; gap:10px;">
+                            <button class="btn" style="background:var(--blue)" onclick="castVote(true)">承認 (Approve)</button>
+                            <button class="btn" style="background:var(--red)" onclick="castVote(false)">却下 (Reject)</button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                actionArea.innerHTML = "<p style='color:#888;'>あなたの投票は完了しました。全員の完了を待っています...</p>";
+            }
+        }
     }
+
+    // --- ここから下は新しい関数として追加 ---
+    window.sendProposal = () => {
+        const selected = Array.from(document.querySelectorAll('.team-check:checked')).map(el => el.value);
+        if (selected.length === 0) return alert("遠征に行く人を選んで！");
+        
+        update(ref(db, `rooms/${roomId}`), {
+            currentProposal: selected,
+            phase: 'VOTING',
+            votes: {} 
+        });
+    };
+
+    window.castVote = (val) => {
+        update(ref(db, `rooms/${roomId}/votes/${myId}`), val);
+    };
 </script>
 </body>
 </html>
