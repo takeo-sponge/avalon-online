@@ -164,6 +164,12 @@ window.leaveGame = () => {
     window.setupRoles = async function() {
         const limit = parseInt(document.getElementById('play-limit').value);
         const snap = await get(ref(db, `rooms/${roomId}/players`));
+        
+        if (!snap.exists()) {
+            alert("プレイヤーが一人もいません！");
+            return;
+        }
+        
         const currentPlayers = Object.values(snap.val());
 
         if (currentPlayers.length !== limit) {
