@@ -99,15 +99,17 @@
 window.onload = () => {
     const savedName = localStorage.getItem('avalon_name');
     const savedRoom = localStorage.getItem('avalon_room');
-    const savedIsHost = localStorage.getItem('avalon_isHost') === 'true';
+    //const savedIsHost = localStorage.getItem('avalon_isHost') === 'true';
 
     if (savedName && savedRoom) {
         document.getElementById('player-name').value = savedName;
         document.getElementById('room-id').value = savedRoom;
         // 少しだけ待ってから実行（確実にFirebaseの準備を待つため）
+        /*
         setTimeout(() => {
             window.joinGame(savedIsHost);
         }, 500);
+        */
     }
 };
 
