@@ -1011,66 +1011,31 @@ window.leaveGame = () => {
                     const wins = currentHistory.filter(v => v === true).length;
 
                     const losses = currentHistory.filter(v => v === false).length;
+                    
 
-
-
-                    // 3. 判定して、1回だけ update を送る
-
-                    if (wins === 3) {
-
-                        alert("正義陣営の勝利！(暗殺フェーズへ...)");
-
-                        update(ref(db, `rooms/${roomId}`), { 
-
-                            status: 'FINISHED', 
-
-                            winner: 'Good',
-
-                            missionHistory: currentHistory // 最後の丸も塗る
-
-                        });
-
-                    } else if (losses === 3) {
-
-                        alert("邪悪陣営の勝利！！");
-
-                        update(ref(db, `rooms/${roomId}`), { 
-
-                            status: 'FINISHED', 
-
-                            winner: 'Evil',
-
-                            missionHistory: currentHistory // 最後の丸も塗る
-
-                        });
-
-                    } else {
-
-                        // まだ決着がつかない場合は次のリーダーへ
-
+                    // wins と losses を数えた後の処理をこれ1つにまとめる
+                    if (wins === 3 || losses === 3) {
+                        const winnerSide = wins === 3 ? 'Good' : 'Evil';
+                        alert(winnerSide === 'Good' ? "正義陣営の勝利！(暗殺フェーズへ...)" : "邪悪陣営の勝利！！");
+                    
                         update(ref(db, `rooms/${roomId}`), {
-
-                            phase: 'PROPOSING',
-
-                            leaderIdx: (data.leaderIdx + 1) % pList.length,
-
-                            missions: null,
-
-                            votes: null,
-
-                            currentProposal: null,
-
-                            missionHistory: currentHistory
-
+                            status: 'FINISHED',
+                            winner: winnerSide,
+                            missionHistory: currentHistory,
+                            phase: 'FINISHED' // フェーズも終わらせる
                         });
-
+                    } else {
+                        // まだ決着がつかない場合のみ、次のリーダーへ回す
+                        update(ref(db, `rooms/${roomId}`), {
+                            phase: 'PROPOSING',
+                            leaderIdx: (data.leaderIdx + 1) % pList.length,
+                            missions: null,
+                            votes: null,
+                            currentProposal: null,
+                            missionHistory: currentHistory
+                        });
                     }
-
                 }, 1500);
-
-
-
-
 
             }
 
