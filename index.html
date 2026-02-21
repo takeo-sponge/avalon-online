@@ -167,7 +167,7 @@
     <div id="action-area" style="margin-top:15px;"></div>
 
     <hr style="border:0; border-top:1px solid #444; margin:20px 0;">
-    <p id="waiting-msg" style="font-size:0.9em; color:var(--accent);"></p>
+
     <div id="action-area" style="margin-top:15px;"></div>
 
     <hr style="border:0; border-top:1px solid #444; margin:20px 0;">
@@ -464,11 +464,11 @@ window.leaveGame = () => {
         };
 
         currentPlayers.forEach((p, i) => {
-
-            updates[`players/${p.id}/role`] = pool[i];
-
-            updates[`players/${p.id}/side`] = ["暗殺者", "モルガナ", "モードレッド", "手先", "オベロン"].some(r => pool[i].includes(r)) ? "Evil" : "Good";
-
+            const roleName = pool[i];
+            updates[`players/${p.id}/role`] = roleName;
+            // 邪悪な役職リストに名前が含まれているかチェック
+            const evilRoles = ["暗殺者", "モルガナ", "モードレッド", "オベロン", "邪悪の手先"];
+            updates[`players/${p.id}/side`] = evilRoles.includes(roleName) ? "Evil" : "Good";
         });
 
         update(ref(db, `rooms/${roomId}`), updates);
