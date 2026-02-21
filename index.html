@@ -86,7 +86,7 @@
     <div id="action-area" style="margin-top:15px;"></div>
 </div>
 
-<script type="module">
+    <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getDatabase, ref, set, onValue, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
@@ -102,31 +102,21 @@
     const db = getDatabase(app);
     let myName = "", roomId = "", myId = null;
 
+    window.onload = () => {
+        const savedName = localStorage.getItem('avalon_name');
+        const savedRoom = localStorage.getItem('avalon_room');
+        if (savedName && savedRoom) {
+            document.getElementById('player-name').value = savedName;
+            document.getElementById('room-id').value = savedRoom;
+        }
+    };
 
-    // Firebase初期化などのすぐ下に追加
-window.onload = () => {
-    const savedName = localStorage.getItem('avalon_name');
-    const savedRoom = localStorage.getItem('avalon_room');
-    //const savedIsHost = localStorage.getItem('avalon_isHost') === 'true';
-
-    if (savedName && savedRoom) {
-        document.getElementById('player-name').value = savedName;
-        document.getElementById('room-id').value = savedRoom;
-        // 少しだけ待ってから実行（確実にFirebaseの準備を待つため）
-        /*
-        setTimeout(() => {
-            window.joinGame(savedIsHost);
-        }, 500);
-        */
-    }
-};
-
-window.leaveGame = () => {
-    if(confirm("保存情報を消してタイトルに戻りますか？")) {
-        localStorage.clear();
-        location.reload();
-    }
-};
+    window.leaveGame = () => {
+        if(confirm("保存情報を消してタイトルに戻りますか？")) {
+            localStorage.clear();
+            location.reload();
+        }
+    };
     
     window.joinGame = async function(isHostRequest) {
         myName = document.getElementById('player-name').value.trim();
@@ -135,10 +125,8 @@ window.leaveGame = () => {
 
         localStorage.setItem('avalon_name', myName);
         localStorage.setItem('avalon_room', roomId);
-        localStorage.setItem('avalon_isHost', isHostRequest);
 
         const roomRef = ref(db, `rooms/${roomId}`);
-        const snap = await get(roomRef);
         if (isHostRequest) await update(roomRef, { hostName: myName });
 
         const pSnap = await get(ref(db, `rooms/${roomId}/players`));
@@ -155,12 +143,10 @@ window.leaveGame = () => {
 
         onValue(roomRef, (snapshot) => {
             const data = snapshot.val();
-            if (!data) return; // データがない時は何もしない
-
+            if (!data) return;
             const pList = data.players ? Object.values(data.players) : [];
             document.getElementById('player-count').innerText = pList.length;
 
-            // 🚩 修正：フラッグが出るように比較を == に変更
             document.getElementById('list-items').innerHTML = pList.map(p => {
                 const isLeader = p.id == data.leaderIdx; 
                 const isHost = p.name === data.hostName;
@@ -175,9 +161,7 @@ window.leaveGame = () => {
 
             if (data.status === 'STARTED') {
                 showGame(data);
-                if (myName === data.hostName) {
-                    handleAutoJudgment(data, pList);
-                }
+                if (myName === data.hostName) handleAutoJudgment(data, pList);
             }
         });
     };
@@ -185,20 +169,9 @@ window.leaveGame = () => {
     window.setupRoles = async function() {
         const limit = parseInt(document.getElementById('play-limit').value);
         const snap = await get(ref(db, `rooms/${roomId}/players`));
-        
-        if (!snap.exists()) {
-            alert("プレイヤーが一人もいません！");
-            return;
-        }
-        
-        const currentPlayers = Object.values(snap.val());
+        const currentPlayers = Object.values(snap.val() || {});
+        if (currentPlayers.length !== limit) return alert(`人数が合いません！`);
 
-        if (currentPlayers.length !== limit) {
-            alert(`エラー：設定された人数(${limit}人)と現在の参加人数(${currentPlayers.length}人)が一致しません！`);
-            return;
-        }
-
-        // 陣営ごとの人数定義
         const config = { 5: [3, 2], 6: [4, 2], 7: [4, 3], 8: [5, 3], 9: [6, 3], 10: [6, 4] };
         const [gNeed, eNeed] = config[limit];
 
@@ -212,21 +185,8 @@ window.leaveGame = () => {
         if (document.getElementById('role-oberon').checked) evilRoles.push("オベロン");
         while (evilRoles.length < eNeed) evilRoles.push("邪悪の手先");
 
-        if (goodRoles.length > gNeed || evilRoles.length > eNeed) {
-            alert("エラー：選んだ役職の数が、陣営の定員を超えています！");
-            return;
-        }
-
         let pool = [...goodRoles, ...evilRoles].sort(() => Math.random() - 0.5);
-
-        // --- 修正後：リーダー(leaderIdx)やフェーズをしっかり設定する ---
-        const updates = { 
-            status: 'STARTED',
-            phase: 'PROPOSING', 
-            leaderIdx: 0,        // 最初のプレイヤーをリーダーにする
-            votes: null,         // 念のため初期化
-            missions: null       // 念のため初期化
-        };
+        const updates = { status: 'STARTED', phase: 'PROPOSING', leaderIdx: 0, voteFailCount: 0, missionHistory: [] };
         currentPlayers.forEach((p, i) => {
             updates[`players/${p.id}/role`] = pool[i];
             updates[`players/${p.id}/side`] = ["暗殺者", "モルガナ", "モードレッド", "手先", "オベロン"].some(r => pool[i].includes(r)) ? "Evil" : "Good";
@@ -234,294 +194,133 @@ window.leaveGame = () => {
         update(ref(db, `rooms/${roomId}`), updates);
     };
 
-   function showGame(data) {
+    function showGame(data) {
         if (!data.players || data.leaderIdx === undefined) return;
-        
         const me = data.players[myId];
         const all = Object.values(data.players);
         const isLeader = data.leaderIdx == myId;
-        const leaderName = data.players[data.leaderIdx] ? data.players[data.leaderIdx].name : "リーダー";
+        const leaderName = data.players[data.leaderIdx]?.name || "リーダー";
 
-        // スコア表示
         const history = data.missionHistory || [];
         for (let i = 1; i <= 5; i++) {
             const el = document.getElementById(`round-${i}`);
-            const result = history[i - 1];
-            el.style.background = result === true ? "var(--blue)" : (result === false ? "var(--red)" : "transparent");
-            el.style.borderColor = (result === true || result === false) ? "transparent" : "#444";
+            const res = history[i-1];
+            el.style.background = res === true ? "var(--blue)" : (res === false ? "var(--red)" : "transparent");
         }
 
         document.getElementById('lobby-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'block';
-        
-        // 役職表示
         document.getElementById('my-role-name').innerText = me.role;
-        const sideColor = me.side === "Good" ? "#3498db" : "#e74c3c";
-        document.getElementById('role-purpose').innerHTML = `
-            <span style="color:${sideColor}; font-size:1.2em;">【${me.side === "Good" ? "正義" : "邪悪"}陣営】</span><br>
-            <span style="font-size:0.8em; opacity:0.8;">${me.side === "Good" ? "遠征を3回成功させよ！" : "遠征を3回失敗させるか、マーリンを暗殺せよ！"}</span>
-        `;
+        document.getElementById('role-purpose').innerHTML = `【${me.side === "Good" ? "正義" : "邪悪"}陣営】`;
 
-        // スキル説明（中身は省略せずに保持）
-        let info = "";
-        if (me.role === "マーリン") {
-            const evils = all.filter(p => p.side === "Evil" && p.role !== "モードレッド").map(p => p.name);
-            info = `<b>🔮 予見した邪悪な者:</b><br>${evils.join(", ") || "なし"}`;
-        } else if (me.role === "パーシヴァル") {
-            const targets = all.filter(p => p.role === "マーリン" || p.role === "モルガナ").map(p => p.name);
-            info = `<b>✨ マーリン候補:</b><br>${targets.join(", ")}`;
-        } else if (me.side === "Evil") {
-            const friends = all.filter(p => p.side === "Evil" && p.id != myId && p.role !== "オベロン").map(p => p.name);
-            info = `<b>😈 邪悪な仲間:</b><br>${friends.join(", ") || "なし"}`;
-        } else {
-            info = "特別な力はありません。話し合いで邪悪を見つけましょう。";
-        }
-        document.getElementById('role-desc').innerHTML = info;
-
-        // 3. UIの出し分け
         const actionArea = document.getElementById('action-area');
         const waitingMsg = document.getElementById('waiting-msg');
-        
-        // 🚩 修正：各ラウンドの必要人数を表示
         const roundNum = history.length + 1;
         const missionSizes = { 5:[2,3,2,3,3], 6:[2,3,4,3,4], 7:[2,3,3,4,4], 8:[3,4,4,5,5], 9:[3,4,4,5,5], 10:[3,4,4,5,5] };
-        const required = missionSizes[all.length] ? missionSizes[all.length][history.length] : "?";
+        const required = missionSizes[all.length]?.[history.length] || "?";
         const failCount = data.voteFailCount || 0;
 
-       if (!data.phase || data.phase === 'PROPOSING') {
-            waitingMsg.innerHTML = `第 ${roundNum} ラウンド (必要人数: <b>${required}名</b>)<br>リーダー: ${leaderName}`;
-            
-            // 🚩 リーダーが誰を選んでいるか全員に見えるようにする
-            // data.currentProposal がリアルタイムで更新される想定（後述の修正が必要）
+        // ログエリア
+        let resultLog = document.getElementById('result-log');
+        if(!resultLog) {
+            resultLog = document.createElement('div');
+            resultLog.id = 'result-log';
+            document.getElementById('game-screen').insertBefore(resultLog, waitingMsg);
+        }
+
+        if (data.phase === 'PROPOSING') {
+            resultLog.innerHTML = failCount > 0 ? `<p style="color:var(--red)">⚠️ 否決されました (${failCount}/5)</p>` : "";
             const currentSelected = data.currentProposal || [];
-            
             const memberListHtml = all.map(p => {
                 const isSelected = currentSelected.includes(String(p.id));
-                const isPLeader = p.id == data.leaderIdx;
-                return `
-                    <div style="margin-bottom:5px;">
-                        <label>
-                            <input type="checkbox" class="team-check" value="${p.id}" 
-                                ${isSelected ? 'checked' : ''} 
-                                ${isLeader ? '' : 'disabled'}> 
-                            ${isPLeader ? '🚩' : ''} ${p.name}
-                        </label>
-                    </div>`;
+                return `<div><label><input type="checkbox" class="team-check" value="${p.id}" ${isSelected?'checked':''} ${isLeader?'':'disabled'}> ${p.id==data.leaderIdx?'🚩':''} ${p.name}</label></div>`;
             }).join('');
 
+            waitingMsg.innerHTML = `第 ${roundNum} ラウンド (必要: ${required}名)<br>リーダー: ${leaderName}`;
+            actionArea.innerHTML = `
+                <div style="text-align:left; background:rgba(255,255,255,0.05); padding:10px; border-radius:5px;">${memberListHtml}</div>
+                ${isLeader ? `<button class="btn" onclick="sendProposal(${failCount>=4})">${failCount>=4?'強制出発':'提案を確定'}</button>` : `<p>${leaderName}を選考中...</p>`}
+            `;
             if (isLeader) {
-                const isLastChance = failCount >= 4;
-                actionArea.innerHTML = `
-                    <h4 style="margin:0 0 10px 0;">${isLastChance ? '【最終確認】' : ''}遠征メンバーを選択</h4>
-                    <div style="text-align:left; background:rgba(255,255,255,0.05); padding:10px; border-radius:5px;">
-                        ${memberListHtml}
-                    </div>
-                    <button class="btn" onclick="sendProposal(${isLastChance})">
-                        ${isLastChance ? '強制遠征を開始する' : '提案を確定する'}
-                    </button>
-                `;
-
-                // 🚩 リーダーがチェックを変えるたびにFirebaseに保存する仕組みを追加（リアルタイム同期用）
-                setTimeout(() => {
-                    document.querySelectorAll('.team-check').forEach(el => {
-                        el.onchange = () => {
-                            const selected = Array.from(document.querySelectorAll('.team-check:checked')).map(cb => cb.value);
-                            update(ref(db, `rooms/${roomId}`), { currentProposal: selected });
-                        };
-                    });
-                }, 100);
-
-            } else {
-                actionArea.innerHTML = `
-                    <p>${leaderName}がメンバーを選考中...</p>
-                    <div style="text-align:left; background:rgba(255,255,255,0.05); padding:10px; border-radius:5px; opacity:0.8;">
-                        ${memberListHtml}
-                    </div>
-                    <p><small>(否決回数: ${failCount}/5)</small></p>
-                `;
+                document.querySelectorAll('.team-check').forEach(el => {
+                    el.onchange = () => {
+                        const sel = Array.from(document.querySelectorAll('.team-check:checked')).map(cb => cb.value);
+                        update(ref(db, `rooms/${roomId}`), { currentProposal: sel });
+                    };
+                });
             }
-        }
-        else if (data.phase === 'VOTING') {
-            const teamIds = data.currentProposal || [];
-            const teamNames = teamIds.map(id => data.players[id].name).join(", ");
-            waitingMsg.innerText = "チーム承認投票中...";
+        } else if (data.phase === 'VOTING') {
+            resultLog.innerHTML = "";
+            waitingMsg.innerText = "投票中...";
             if (!data.votes || data.votes[myId] === undefined) {
-                actionArea.innerHTML = `
-                    <p>提案されたチーム: <b style="color:var(--accent)">${teamNames}</b></p>
-                    <div style="display:flex; gap:10px;">
-                        <button class="btn" style="background:var(--blue)" onclick="castVote(true)">承認</button>
-                        <button class="btn" style="background:var(--red)" onclick="castVote(false)">却下</button>
-                    </div>
-                `;
+                actionArea.innerHTML = `<button class="btn" onclick="castVote(true)">承認</button><button class="btn" style="background:var(--red)" onclick="castVote(false)">却下</button>`;
             } else {
-                actionArea.innerHTML = "<p>他のプレイヤーの投票を待っています...</p>";
+                actionArea.innerHTML = "<p>待機中...</p>";
             }
-        }
-        else if (data.phase === 'MISSION') {
-            const teamIds = data.currentProposal || [];
-            const teamNames = teamIds.map(id => data.players[id] ? data.players[id].name : "不明").join(", ");
-            const isMember = teamIds.includes(String(myId));
-
-            const resultLog = document.getElementById('result-log') || createLogArea();
-
-            if (data.phase === 'PROPOSING' && data.voteFailCount > 0) {
-                resultLog.innerHTML = `<div style="color:var(--red); padding:10px; border:1px solid var(--red); margin-bottom:10px; border-radius:5px;">
-                    ⚠️ 提案が否決されました！ (現在 ${data.voteFailCount}/5 回却下)
-                </div>`;
+        } else if (data.phase === 'MISSION') {
+            resultLog.innerHTML = "";
+            const isMember = (data.currentProposal || []).includes(String(myId));
+            waitingMsg.innerText = "ミッション実行中...";
+            if (isMember && (!data.missions || data.missions[myId] === undefined)) {
+                actionArea.innerHTML = `<button class="btn" onclick="castMission(true)">成功</button>${me.side==='Evil'?'<button class="btn" style="background:var(--red)" onclick="castMission(false)">失敗</button>':''}`;
             } else {
-                resultLog.innerHTML = "";
-            }
-            waitingMsg.innerHTML = `<span style="color:var(--accent)">遠征中: ${teamNames}</span>`;
-            if (isMember) {
-                if (!data.missions || data.missions[myId] === undefined) {
-                    actionArea.innerHTML = `
-                        <div style="border:2px solid var(--accent); padding:10px; border-radius:10px;">
-                            <p>この遠征を...</p>
-                            <div style="display:flex; gap:10px;">
-                                <button class="btn" style="background:var(--blue)" onclick="castMission(true)">成功させる</button>
-                                ${me.side === 'Evil' ? `<button class="btn" style="background:var(--red)" onclick="castMission(false)">失敗させる</button>` : ''}
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    actionArea.innerHTML = "<p>報告完了。待機中...</p>";
-                }
-            } else {
-                actionArea.innerHTML = "<p>遠征メンバー以外の人は議論して待ってね！</p>";
+                actionArea.innerHTML = "<p>遠征隊の報告を待っています...</p>";
             }
         }
     }
 
-    // 🚩 修正：提案時に5人目かどうかを判断
     window.sendProposal = (isForced) => {
-        const selected = Array.from(document.querySelectorAll('.team-check:checked')).map(el => el.value);
-        if (selected.length == 0) return alert("遠征に行く人を選んで！");
-        
-        if (isForced) {
-            if (!confirm("5人目のリーダーなので投票なしで強制出発します。よろしいですか？")) return;
-            update(ref(db, `rooms/${roomId}`), {
-                currentProposal: selected,
-                phase: 'MISSION', // 直接ミッションへ
-                missions: null,
-                voteFailCount: 0  // リセット
-            });
-        } else {
-            update(ref(db, `rooms/${roomId}`), {
-                currentProposal: selected,
-                phase: 'VOTING',
-                votes: null
-            });
-        }
-    };
-    // --- ここから下は新しい関数として追加 ---
-    window.sendProposal = () => {
-        const selected = Array.from(document.querySelectorAll('.team-check:checked')).map(el => el.value);
-        if (selected.length === 0) return alert("遠征に行く人を選んで！");
-        
-        update(ref(db, `rooms/${roomId}`), {
-            currentProposal: selected,
-            phase: 'VOTING',
-            votes: null
-        });
+        const sel = Array.from(document.querySelectorAll('.team-check:checked')).map(el => el.value);
+        if (sel.length == 0) return alert("選んで！");
+        if (isForced && !confirm("5人目なので強制出発します！")) return;
+        update(ref(db, `rooms/${roomId}`), { currentProposal: sel, phase: isForced ? 'MISSION' : 'VOTING', votes: null, missions: null });
     };
 
-    window.castVote = (val) => {
-        set(ref(db, `rooms/${roomId}/votes/${myId}`), val);
-    };
-    // ミッションの成功・失敗を送信する
-    window.castMission = (val) => {
-        set(ref(db, `rooms/${roomId}/missions/${myId}`), val);
-    };
+    window.castVote = (val) => set(ref(db, `rooms/${roomId}/votes/${myId}`), val);
+    window.castMission = (val) => set(ref(db, `rooms/${roomId}/missions/${myId}`), val);
 
-    // ホスト用：自動でフェーズを進めるジャッジ関数
     function handleAutoJudgment(data, pList) {
-    if (data.phase === 'VOTING') {
-        const votes = data.votes || {};
-        if (Object.keys(votes).length === pList.length) {
-            const approves = Object.values(votes).filter(v => v === true).length;
-            const isApproved = approves > pList.length / 2;
-
-            setTimeout(() => {
-                if (isApproved) {
-                    // 承認：ミッションフェーズへ
-                    update(ref(db, `rooms/${roomId}`), { 
-                        phase: 'MISSION', 
-                        missions: null,
-                        voteFailCount: 0 // 遠征が決まったらカウントリセット
-                    });
-                } else {
-                    // 否決：カウントを増やして次のリーダーへ
-                    const nextFailCount = (data.voteFailCount || 0) + 1;
-                    
-                    // ここでFirebaseを更新！これで全員の画面が変わる
-                    update(ref(db, `rooms/${roomId}`), {
-                        phase: 'PROPOSING',
-                        leaderIdx: (data.leaderIdx + 1) % pList.length,
-                        votes: null,
-                        currentProposal: null,
-                        voteFailCount: nextFailCount // 🔥 ここでカウントを保存！
-                    });
-                    
-                    // ホストだけアラート出すとズレるので、
-                    // 全員共通のメッセージにするなら showGame 内で出すのがいいけど、
-                    // まずはこれでデータが全員に飛ぶようになるよ。
-                }
-            }, 1000);
-        }
-    }
-    // ... ミッション集計部分も同様に update で履歴を保存するように書き換わっているはず
-}
-        // 2. ミッションの集計（遠征メンバーの報告が揃ったら）
-        if (data.phase === 'MISSION') {
-            const missions = data.missions || {};
-            const memberCount = (data.currentProposal || []).length;
-            if (Object.keys(missions).length === memberCount) {
-                const fails = Object.values(missions).filter(v => v === false).length;
-                const success = fails === 0; // 1枚でも失敗があれば失敗
-
+        if (data.phase === 'VOTING') {
+            const votes = data.votes || {};
+            if (Object.keys(votes).length === pList.length) {
+                const approves = Object.values(votes).filter(v => v === true).length;
                 setTimeout(() => {
-                    alert(success ? "🎉 遠征成功！！" : `💀 遠征失敗... (失敗数: ${fails})`);
-                    
-                    // 1. まず履歴に今回の結果を追加する！
-                    const currentHistory = data.missionHistory || [];
-                    currentHistory.push(success);
-
-                    // 2. 追加した「後」のリストで、勝利数を数える
-                    const wins = currentHistory.filter(v => v === true).length;
-                    const losses = currentHistory.filter(v => v === false).length;
-
-                    // 3. 判定して、1回だけ update を送る
-                    if (wins === 3) {
-                        alert("正義陣営の勝利！(暗殺フェーズへ...)");
-                        update(ref(db, `rooms/${roomId}`), { 
-                            status: 'FINISHED', 
-                            winner: 'Good',
-                            missionHistory: currentHistory // 最後の丸も塗る
-                        });
-                    } else if (losses === 3) {
-                        alert("邪悪陣営の勝利！！");
-                        update(ref(db, `rooms/${roomId}`), { 
-                            status: 'FINISHED', 
-                            winner: 'Evil',
-                            missionHistory: currentHistory // 最後の丸も塗る
-                        });
+                    if (approves > pList.length / 2) {
+                        update(ref(db, `rooms/${roomId}`), { phase: 'MISSION', missions: null, voteFailCount: 0 });
                     } else {
-                        // まだ決着がつかない場合は次のリーダーへ
-                        update(ref(db, `rooms/${roomId}`), {
-                            phase: 'PROPOSING',
-                            leaderIdx: (data.leaderIdx + 1) % pList.length,
-                            missions: null,
-                            votes: null,
-                            currentProposal: null,
-                            missionHistory: currentHistory
+                        update(ref(db, `rooms/${roomId}`), { 
+                            phase: 'PROPOSING', 
+                            leaderIdx: (data.leaderIdx + 1) % pList.length, 
+                            votes: null, 
+                            currentProposal: null, 
+                            voteFailCount: (data.voteFailCount || 0) + 1 
                         });
                     }
-                }, 1500);
-
-
+                }, 1000);
+            }
+        }
+        if (data.phase === 'MISSION') {
+            const missions = data.missions || {};
+            const team = data.currentProposal || [];
+            if (Object.keys(missions).length === team.length) {
+                const fails = Object.values(missions).filter(v => v === false).length;
+                const history = data.missionHistory || [];
+                history.push(fails === 0);
+                setTimeout(() => {
+                    alert(fails === 0 ? "🎉 成功！" : `💀 失敗... (${fails}票)`);
+                    update(ref(db, `rooms/${roomId}`), { 
+                        phase: 'PROPOSING', 
+                        leaderIdx: (data.leaderIdx + 1) % pList.length, 
+                        missions: null, 
+                        currentProposal: null, 
+                        missionHistory: history 
+                    });
+                }, 1000);
             }
         }
     }
 </script>
+
+
 </body>
 </html>
