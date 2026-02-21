@@ -810,6 +810,30 @@ window.leaveGame = () => {
 
         }
 
+       // 👈 ここに新しく追加！
+        else if (data.phase === 'ASSASSINATION') {
+            const assassin = all.find(p => p.role === '暗殺者');
+            waitingMsg.innerHTML = `<span style="color:var(--red)">🏹 暗殺フェーズ: 暗殺者がマーリンを狙っています...</span>`;
+
+            if (me.role === '暗殺者') {
+                const targets = all.filter(p => p.id != myId);
+                const targetButtons = targets.map(p => 
+                    `<button class="btn" style="background:#444; margin-bottom:5px;" onclick="executeAssassination(${p.id})">${p.name}を暗殺</button>`
+                ).join('');
+
+                actionArea.innerHTML = `
+                    <div style="border:2px solid var(--red); padding:15px; border-radius:10px;">
+                        <p style="margin-top:0;">マーリンは誰だ？正解すれば逆転勝利！</p>
+                        ${targetButtons}
+                    </div>
+                `;
+            } else {
+                actionArea.innerHTML = `<p>暗殺者（${assassin ? assassin.name : '？'}）の決断を待っています...</p>`;
+            }
+        }
+
+       
+
     }
 
 
@@ -898,6 +922,26 @@ window.leaveGame = () => {
 
     };
 
+        // 🚩 scriptタグの最後の方、window.castMission の下あたりに追加
+    window.executeAssassination = async (targetId) => {
+        const snap = await get(ref(db, `rooms/${roomId}`));
+        const data = snap.val();
+        const targetPlayer = data.players[targetId];
+        
+        if (!confirm(`${targetPlayer.name} を暗殺しますか？`)) return;
+    
+        const isMerlin = targetPlayer.role === 'マーリン';
+        const finalWinner = isMerlin ? 'Evil' : 'Good';
+    
+        alert(isMerlin ? `🎯 正解！マーリン（${targetPlayer.name}）を暗殺成功！` : `❌ 残念！${targetPlayer.name} はマーリンではありませんでした。`);
+    
+        update(ref(db, `rooms/${roomId}`), {
+            status: 'FINISHED',
+            winner: finalWinner,
+            phase: 'FINISHED'
+        });
+    };
+    
 
 
     // ホスト用：自動でフェーズを進めるジャッジ関数
@@ -1040,17 +1084,25 @@ window.leaveGame = () => {
 
                     // wins と losses を数えた後の処理をこれ1つにまとめる
                     if (wins === 3 || losses === 3) {
-                        const winnerSide = wins === 3 ? 'Good' : 'Evil';
-                        alert(winnerSide === 'Good' ? "正義陣営の勝利！(暗殺フェーズへ...)" : "邪悪陣営の勝利！！");
-                    
-                        update(ref(db, `rooms/${roomId}`), {
-                            status: 'FINISHED',
-                            winner: winnerSide,
-                            missionHistory: currentHistory,
-                            phase: 'FINISHED' // フェーズも終わらせる
-                        });
+                        if (wins === 3) {
+                            // 正義が3勝した場合は、まだ終わらずに「暗殺フェーズ」へ
+                            alert("正義陣営が3任務成功！...しかし、暗殺者のターンが始まります。");
+                            update(ref(db, `rooms/${roomId}`), {
+                                phase: 'ASSASSINATION',
+                                missionHistory: currentHistory
+                            });
+                        } else {
+                            // 邪悪が3敗させた場合は、その時点で邪悪の勝利確定
+                            alert("邪悪陣営の勝利！！");
+                            update(ref(db, `rooms/${roomId}`), {
+                                status: 'FINISHED',
+                                winner: 'Evil',
+                                phase: 'FINISHED',
+                                missionHistory: currentHistory
+                            });
+                        }
                     } else {
-                        // まだ決着がつかない場合のみ、次のリーダーへ回す
+                        // 続行の場合
                         update(ref(db, `rooms/${roomId}`), {
                             phase: 'PROPOSING',
                             leaderIdx: (data.leaderIdx + 1) % pList.length,
@@ -1060,6 +1112,7 @@ window.leaveGame = () => {
                             missionHistory: currentHistory
                         });
                     }
+
                 }, 1500);
 
             }
