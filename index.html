@@ -157,13 +157,11 @@ window.leaveGame = () => {
             const data = snapshot.val();
             const pList = data.players ? Object.values(data.players) : [];
             document.getElementById('player-count').innerText = pList.length;
+            // pList.map の中を少し整理
             document.getElementById('list-items').innerHTML = pList.map(p => {
-                const isLeader = p.id == data.leaderIdx;
+                const isLeader = String(p.id) === String(data.leaderIdx); // IDを文字列で比較すると確実
                 const isHost = p.name === data.hostName;
-                return `<li>
-                    ${isLeader ? '🚩 ' : '👤 '} ${p.name} 
-                    ${isHost ? '👑' : ''}
-                </li>`;
+                return `<li>${isLeader ? '🚩 ' : '👤 '} ${p.name} ${isHost ? '👑' : ''}</li>`;
             }).join('');
             if (data.hostName === myName) {
                 document.getElementById('host-panel').style.display = 'block';
@@ -332,8 +330,14 @@ window.leaveGame = () => {
         }
         else if (data.phase === 'MISSION') {
             const teamIds = data.currentProposal || [];
-            const teamNames = teamIds.map(id => data.players[id].name).join(", ");
-            waitingMsg.innerText = `遠征中メンバー: ${teamNames}`;
+            const teamNames = teamIds.map(id => data.players[id] ? data.players[id].name : "不明").join(", ");
+            
+            // 🚩 ここが大事！まず isMember を定義する
+            const isMember = teamIds.includes(String(myId));
+
+            waitingMsg.innerHTML = `第 ${ (data.missionHistory || []).length + 1 } ラウンド<br>
+                                    <span style="color:var(--accent)">遠征中: ${teamNames}</span>`;
+
             if (isMember) {
                 if (!data.missions || data.missions[myId] === undefined) {
                     actionArea.innerHTML = `
