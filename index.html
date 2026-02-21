@@ -69,6 +69,14 @@
      </div>
 
 <div id="game-screen" style="display:none;" class="card">
+    <div id="mission-track" style="display:flex; justify-content:center; gap:10px; margin-bottom:20px;">
+        <div class="round-circle" id="round-1" style="width:40px; height:40px; border-radius:50%; border:2px solid #444; display:flex; align-items:center; justify-content:center; font-weight:bold;">1</div>
+        <div class="round-circle" id="round-2" style="width:40px; height:40px; border-radius:50%; border:2px solid #444; display:flex; align-items:center; justify-content:center; font-weight:bold;">2</div>
+        <div class="round-circle" id="round-3" style="width:40px; height:40px; border-radius:50%; border:2px solid #444; display:flex; align-items:center; justify-content:center; font-weight:bold;">3</div>
+        <div class="round-circle" id="round-4" style="width:40px; height:40px; border-radius:50%; border:2px solid #444; display:flex; align-items:center; justify-content:center; font-weight:bold;">4</div>
+        <div class="round-circle" id="round-5" style="width:40px; height:40px; border-radius:50%; border:2px solid #444; display:flex; align-items:center; justify-content:center; font-weight:bold;">5</div>
+    </div>
+    
     <h3 id="my-role-name" style="color:var(--accent); font-size:2em; margin:10px 0;"></h3>
     <div id="role-purpose" style="font-weight:bold; margin-bottom:15px; border-bottom:1px solid #444; padding-bottom:10px;"></div>
     <div id="role-desc" style="background:rgba(0,0,0,0.4); padding:15px; border-radius:8px; text-align:left; font-size:0.9em;"></div>
@@ -156,8 +164,6 @@ window.leaveGame = () => {
             } else {
                 document.getElementById('guest-msg').style.display = 'block';
             }
-
-
             // --- 修正前 ---
             // if (data.status === 'STARTED') showGame(data);
 
@@ -230,6 +236,22 @@ window.leaveGame = () => {
             return; 
         }
         const me = data.players[myId];
+       // スコアボードの色塗り
+        const history = data.missionHistory || []; // [true, false, true] のような配列を想定
+        for (let i = 1; i <= 5; i++) {
+            const el = document.getElementById(`round-${i}`);
+            const result = history[i - 1];
+            if (result === true) {
+                el.style.background = "var(--blue)"; // 正義の勝利
+                el.style.borderColor = "var(--blue)";
+            } else if (result === false) {
+                el.style.background = "var(--red)"; // 邪悪の勝利
+                el.style.borderColor = "var(--red)";
+            } else {
+                el.style.background = "transparent";
+                el.style.borderColor = "#444";
+            }
+        }
         const all = Object.values(data.players);
         const isLeader = data.leaderIdx == myId;
         const leaderName = data.players[data.leaderIdx].name;
@@ -378,12 +400,18 @@ window.leaveGame = () => {
 
                 setTimeout(() => {
                     alert(success ? "🎉 遠征成功！！" : `💀 遠征失敗... (失敗数: ${fails})`);
+                    
+                    // 👇 ここを書き換え：履歴を更新する
+                    const currentHistory = data.missionHistory || [];
+                    currentHistory.push(success);
+
                     update(ref(db, `rooms/${roomId}`), {
                         phase: 'PROPOSING',
                         leaderIdx: (data.leaderIdx + 1) % pList.length,
                         missions: null,
                         votes: null,
-                        currentProposal: null
+                        currentProposal: null,
+                        missionHistory: currentHistory // 履歴をFirebaseに保存
                     });
                 }, 1500);
             }
