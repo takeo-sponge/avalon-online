@@ -157,8 +157,14 @@ window.leaveGame = () => {
             const data = snapshot.val();
             const pList = data.players ? Object.values(data.players) : [];
             document.getElementById('player-count').innerText = pList.length;
-            document.getElementById('list-items').innerHTML = pList.map(p => `<li>👤 ${p.name} ${p.name === data.hostName ? '👑' : ''}</li>`).join('');
-            
+            document.getElementById('list-items').innerHTML = pList.map(p => {
+                const isLeader = p.id == data.leaderIdx;
+                const isHost = p.name === data.hostName;
+                return `<li>
+                    ${isLeader ? '🚩 ' : '👤 '} ${p.name} 
+                    ${isHost ? '👑' : ''}
+                </li>`;
+            }).join('');
             if (data.hostName === myName) {
                 document.getElementById('host-panel').style.display = 'block';
             } else {
@@ -325,8 +331,9 @@ window.leaveGame = () => {
             }
         }
         else if (data.phase === 'MISSION') {
-            const isMember = (data.currentProposal || []).includes(String(myId));
-            waitingMsg.innerText = "遠征（ミッション）中...";
+            const teamIds = data.currentProposal || [];
+            const teamNames = teamIds.map(id => data.players[id].name).join(", ");
+            waitingMsg.innerText = `遠征中メンバー: ${teamNames}`;
             if (isMember) {
                 if (!data.missions || data.missions[myId] === undefined) {
                     actionArea.innerHTML = `
