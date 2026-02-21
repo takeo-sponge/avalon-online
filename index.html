@@ -931,13 +931,21 @@ window.leaveGame = () => {
         const isMerlin = targetPlayer.role === 'マーリン';
         const finalWinner = isMerlin ? 'Evil' : 'Good';
     
-        alert(isMerlin ? `🎯 正解！マーリン（${targetPlayer.name}）を暗殺成功！` : `❌ 残念！${targetPlayer.name} はマーリンではありませんでした。`);
-    
-        update(ref(db, `rooms/${roomId}`), {
+        // 🚩 修正ポイント：alertの前にFirebaseを更新して、全員のフェーズを終了させる
+        // また、誰が誰を指名してどうなったかの結果もデータに含めると確実だよ
+        await update(ref(db, `rooms/${roomId}`), {
             status: 'FINISHED',
             winner: finalWinner,
-            phase: 'FINISHED'
+            phase: 'FINISHED',
+            assassinationResult: {
+                targetName: targetPlayer.name,
+                isMerlin: isMerlin
+            }
         });
+
+        // 自分の画面用のアラートは更新後に。
+        // (他の人は showGame の status === 'FINISHED' で結果を見る仕組み)
+        alert(isMerlin ? `🎯 正解！マーリン（${targetPlayer.name}）を暗殺成功！` : `❌ 残念！${targetPlayer.name} はマーリンではありませんでした。`);
     };
     
 
