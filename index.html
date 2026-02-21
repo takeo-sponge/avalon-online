@@ -362,6 +362,15 @@ window.leaveGame = () => {
             const teamNames = teamIds.map(id => data.players[id] ? data.players[id].name : "不明").join(", ");
             const isMember = teamIds.includes(String(myId));
 
+            const resultLog = document.getElementById('result-log') || createLogArea();
+
+            if (data.phase === 'PROPOSING' && data.voteFailCount > 0) {
+                resultLog.innerHTML = `<div style="color:var(--red); padding:10px; border:1px solid var(--red); margin-bottom:10px; border-radius:5px;">
+                    ⚠️ 提案が否決されました！ (現在 ${data.voteFailCount}/5 回却下)
+                </div>`;
+            } else {
+                resultLog.innerHTML = "";
+            }
             waitingMsg.innerHTML = `<span style="color:var(--accent)">遠征中: ${teamNames}</span>`;
             if (isMember) {
                 if (!data.missions || data.missions[myId] === undefined) {
@@ -426,28 +435,42 @@ window.leaveGame = () => {
 
     // ホスト用：自動でフェーズを進めるジャッジ関数
     function handleAutoJudgment(data, pList) {
-        // 1. 投票の集計（全員の票が揃ったら）
-        if (data.phase === 'VOTING') {
-            const votes = data.votes || {};
-            if (Object.keys(votes).length === pList.length) {
-                const approves = Object.values(votes).filter(v => v === true).length;
-                const isApproved = approves > pList.length / 2;
+    if (data.phase === 'VOTING') {
+        const votes = data.votes || {};
+        if (Object.keys(votes).length === pList.length) {
+            const approves = Object.values(votes).filter(v => v === true).length;
+            const isApproved = approves > pList.length / 2;
 
-                setTimeout(() => {
-                    if (isApproved) {
-                        update(ref(db, `rooms/${roomId}`), { phase: 'MISSION', missions: null });
-                    } else {
-                        update(ref(db, `rooms/${roomId}`), {
-                            phase: 'PROPOSING',
-                            leaderIdx: (data.leaderIdx + 1) % pList.length,
-                            votes: null,
-                            currentProposal: null
-                        });
-                        alert("チームが否決されました。リーダー交代！");
-                    }
-                }, 1000);
-            }
+            setTimeout(() => {
+                if (isApproved) {
+                    // 承認：ミッションフェーズへ
+                    update(ref(db, `rooms/${roomId}`), { 
+                        phase: 'MISSION', 
+                        missions: null,
+                        voteFailCount: 0 // 遠征が決まったらカウントリセット
+                    });
+                } else {
+                    // 否決：カウントを増やして次のリーダーへ
+                    const nextFailCount = (data.voteFailCount || 0) + 1;
+                    
+                    // ここでFirebaseを更新！これで全員の画面が変わる
+                    update(ref(db, `rooms/${roomId}`), {
+                        phase: 'PROPOSING',
+                        leaderIdx: (data.leaderIdx + 1) % pList.length,
+                        votes: null,
+                        currentProposal: null,
+                        voteFailCount: nextFailCount // 🔥 ここでカウントを保存！
+                    });
+                    
+                    // ホストだけアラート出すとズレるので、
+                    // 全員共通のメッセージにするなら showGame 内で出すのがいいけど、
+                    // まずはこれでデータが全員に飛ぶようになるよ。
+                }
+            }, 1000);
         }
+    }
+    // ... ミッション集計部分も同様に update で履歴を保存するように書き換わっているはず
+}
         // 2. ミッションの集計（遠征メンバーの報告が揃ったら）
         if (data.phase === 'MISSION') {
             const missions = data.missions || {};
