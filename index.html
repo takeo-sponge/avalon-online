@@ -401,18 +401,29 @@ window.leaveGame = () => {
                 setTimeout(() => {
                     alert(success ? "🎉 遠征成功！！" : `💀 遠征失敗... (失敗数: ${fails})`);
                     
-                    // 👇 ここを書き換え：履歴を更新する
+                    // 1. まず履歴に今回の結果を追加する！
                     const currentHistory = data.missionHistory || [];
-                    // --- 勝敗判定の追加 ---
+                    currentHistory.push(success);
+
+                    // 2. 追加した「後」のリストで、勝利数を数える
                     const wins = currentHistory.filter(v => v === true).length;
                     const losses = currentHistory.filter(v => v === false).length;
 
+                    // 3. 判定して、1回だけ update を送る
                     if (wins === 3) {
                         alert("正義陣営の勝利！(暗殺フェーズへ...)");
-                        update(ref(db, `rooms/${roomId}`), { status: 'FINISHED', winner: 'Good' });
+                        update(ref(db, `rooms/${roomId}`), { 
+                            status: 'FINISHED', 
+                            winner: 'Good',
+                            missionHistory: currentHistory // 最後の丸も塗る
+                        });
                     } else if (losses === 3) {
                         alert("邪悪陣営の勝利！！");
-                        update(ref(db, `rooms/${roomId}`), { status: 'FINISHED', winner: 'Evil' });
+                        update(ref(db, `rooms/${roomId}`), { 
+                            status: 'FINISHED', 
+                            winner: 'Evil',
+                            missionHistory: currentHistory // 最後の丸も塗る
+                        });
                     } else {
                         // まだ決着がつかない場合は次のリーダーへ
                         update(ref(db, `rooms/${roomId}`), {
@@ -424,17 +435,9 @@ window.leaveGame = () => {
                             missionHistory: currentHistory
                         });
                     }
-                    currentHistory.push(success);
-
-                    update(ref(db, `rooms/${roomId}`), {
-                        phase: 'PROPOSING',
-                        leaderIdx: (data.leaderIdx + 1) % pList.length,
-                        missions: null,
-                        votes: null,
-                        currentProposal: null,
-                        missionHistory: currentHistory // 履歴をFirebaseに保存
-                    });
                 }, 1500);
+
+
             }
         }
     }
