@@ -931,19 +931,18 @@ window.leaveGame = () => {
     
         // 🚩 ここが重要：まずFirebaseを更新して、全員の状態を「FINISHED」にする
         await update(ref(db, `rooms/${roomId}`), {
-            status: 'FINISHED',
-            winner: finalWinner,
-            phase: 'FINISHED',
-            assassinationResult: {
-                targetName: targetPlayer.name,
-                isMerlin: isMerlin
-            }
-        });
+        status: 'FINISHED',
+        winner: finalWinner,
+        phase: 'FINISHED',
+        assassinationResult: {
+            targetName: targetPlayer.name,
+            isMerlin: isMerlin
+        }
+    });
 
-        // アラートは最後に出す（OKを押した瞬間に画面が切り替わるように）
-        alert(isMerlin ? `🎯 正解！マーリン（${targetPlayer.name}）を暗殺成功！` : `❌ 残念！${targetPlayer.name} はマーリンではありませんでした。`);
-    };
-    
+       // 🚩 全員の画面がFINISHEDに切り替わるはずなので、ここのalertは「結果表示」の補助として扱う
+    console.log("Game Finished: Winner is " + finalWinner);
+};
 
 
     // ホスト用：自動でフェーズを進めるジャッジ関数
