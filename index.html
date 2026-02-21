@@ -577,6 +577,24 @@ window.leaveGame = () => {
 
         const failCount = data.voteFailCount || 0;
 
+       const resultLog = document.getElementById('result-log');
+        if (resultLog) {
+            if (data.lastVoteResult) {
+                const res = data.lastVoteResult;
+                const details = Object.entries(res.details).map(([id, v]) => 
+                    `<span style="color:${v ? 'var(--blue)' : 'var(--red)'}">${data.players[id] ? data.players[id].name : id}${v ? '◯' : '×'}</span>`
+                ).join(' ');
+                resultLog.innerHTML = `
+                    <div style="background:rgba(255,255,255,0.1); padding:8px; border-radius:5px; margin-bottom:10px;">
+                        <small>前回の投票結果: ${res.approved ? '✅承認' : '❌否決'}</small><br>
+                        <div style="margin-top:5px; font-size:0.9em;">${details}</div>
+                    </div>`;
+            } else if (failCount > 0) {
+                resultLog.innerHTML = `<div style="color:var(--red); margin-bottom:10px; padding:8px; border:1px solid var(--red); border-radius:5px;">⚠️ 否決されました (${failCount}/5)</div>`;
+            } else {
+                resultLog.innerHTML = "";
+            }
+        }
 
 
        if (!data.phase || data.phase === 'PROPOSING') {
@@ -727,26 +745,9 @@ window.leaveGame = () => {
 
 
             const resultLog = document.getElementById('result-log');
-                if (resultLog) {
-                    if (data.lastVoteResult) {
-                        const res = data.lastVoteResult;
-                        const details = Object.entries(res.details).map(([id, v]) => 
-                            `<span style="color:${v ? 'var(--blue)' : 'var(--red)'}">${data.players[id] ? data.players[id].name : id}${v ? '◯' : '×'}</span>`
-                        ).join(' ');
-                        resultLog.innerHTML = `
-                            <div style="background:rgba(255,255,255,0.1); padding:8px; border-radius:5px; margin-bottom:10px;">
-                                <small>前回の投票: ${res.approved ? '✅承認' : '❌否決'}</small><br>
-                                ${details}
-                            </div>`;
-                    } else if (failCount > 0) {
-                        resultLog.innerHTML = `<div style="color:var(--red); margin-bottom:10px;">⚠️ 否決されました (${failCount}/5)</div>`;
-                    } else {
-                        resultLog.innerHTML = "";
-                    }
-                }
+              
 
-
-            if (data.phase === 'PROPOSING' && data.voteFailCount > 0) {
+          /*  if (data.phase === 'PROPOSING' && data.voteFailCount > 0) {
 
                 resultLog.innerHTML = `<div style="color:var(--red); padding:10px; border:1px solid var(--red); margin-bottom:10px; border-radius:5px;">
 
@@ -759,6 +760,7 @@ window.leaveGame = () => {
                 resultLog.innerHTML = "";
 
             }
+            */
 
             waitingMsg.innerHTML = `<span style="color:var(--accent)">遠征中: ${teamNames}</span>`;
 
