@@ -161,6 +161,7 @@
     <div id="role-purpose" style="font-weight:bold; margin-bottom:15px; border-bottom:1px solid #444; padding-bottom:10px;"></div>
 
     <div id="role-desc" style="background:rgba(0,0,0,0.4); padding:15px; border-radius:8px; text-align:left; font-size:0.9em;"></div>
+    <div id="result-log" style="margin: 15px 0; font-size: 0.85em; text-align: left; max-height: 150px; overflow-y: auto;"></div>
 
     
 
@@ -582,7 +583,6 @@ window.leaveGame = () => {
 
             waitingMsg.innerHTML = `第 ${roundNum} ラウンド (必要人数: <b>${required}名</b>)<br>リーダー: ${leaderName}`;
 
-            
 
             // 🚩 リーダーが誰を選んでいるか全員に見えるようにする
 
@@ -726,8 +726,24 @@ window.leaveGame = () => {
 
 
 
-            const resultLog = document.getElementById('result-log') || createLogArea();
-
+            const resultLog = document.getElementById('result-log');
+                if (resultLog) {
+                    if (data.lastVoteResult) {
+                        const res = data.lastVoteResult;
+                        const details = Object.entries(res.details).map(([id, v]) => 
+                            `<span style="color:${v ? 'var(--blue)' : 'var(--red)'}">${data.players[id] ? data.players[id].name : id}${v ? '◯' : '×'}</span>`
+                        ).join(' ');
+                        resultLog.innerHTML = `
+                            <div style="background:rgba(255,255,255,0.1); padding:8px; border-radius:5px; margin-bottom:10px;">
+                                <small>前回の投票: ${res.approved ? '✅承認' : '❌否決'}</small><br>
+                                ${details}
+                            </div>`;
+                    } else if (failCount > 0) {
+                        resultLog.innerHTML = `<div style="color:var(--red); margin-bottom:10px;">⚠️ 否決されました (${failCount}/5)</div>`;
+                    } else {
+                        resultLog.innerHTML = "";
+                    }
+                }
 
 
             if (data.phase === 'PROPOSING' && data.voteFailCount > 0) {
@@ -861,7 +877,31 @@ window.leaveGame = () => {
 
             const isApproved = approves > pList.length / 2;
 
+            // 投票結果のログを作成
+            const voteLog = {
+                approved: isApproved,
+                details: votes
+            };
 
+            setTimeout(() => {
+                if (isApproved) {
+                    update(ref(db, `rooms/${roomId}`), { 
+                        phase: 'MISSION', 
+                        missions: null,
+                        voteFailCount: 0,
+                        lastVoteResult: voteLog // ログを保存
+                    });
+                } else {
+                    update(ref(db, `rooms/${roomId}`), {
+                        phase: 'PROPOSING',
+                        leaderIdx: (data.leaderIdx + 1) % pList.length,
+                        votes: null,
+                        currentProposal: null,
+                        voteFailCount: (data.voteFailCount || 0) + 1,
+                        lastVoteResult: voteLog // ログを保存
+                    });
+                }
+            }, 1000);
 
             setTimeout(() => {
 
