@@ -197,7 +197,15 @@ window.leaveGame = () => {
         }
 
         let pool = [...goodRoles, ...evilRoles].sort(() => Math.random() - 0.5);
-        const updates = { status: 'STARTED' };
+
+        // --- 修正後：リーダー(leaderIdx)やフェーズをしっかり設定する ---
+        const updates = { 
+            status: 'STARTED',
+            phase: 'PROPOSING', 
+            leaderIdx: 0,        // 最初のプレイヤーをリーダーにする
+            votes: null,         // 念のため初期化
+            missions: null       // 念のため初期化
+        };
         currentPlayers.forEach((p, i) => {
             updates[`players/${p.id}/role`] = pool[i];
             updates[`players/${p.id}/side`] = ["暗殺者", "モルガナ", "モードレッド", "手先", "オベロン"].some(r => pool[i].includes(r)) ? "Evil" : "Good";
