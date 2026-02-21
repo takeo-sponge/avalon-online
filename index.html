@@ -30,6 +30,12 @@
 
         .error-msg { color: var(--red); font-size: 0.8em; margin-top: 5px; display: none; }
 
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
     </style>
 
 </head>
@@ -599,6 +605,13 @@ window.leaveGame = () => {
 
         const required = missionSizes[all.length] ? missionSizes[all.length][history.length] : "?";
 
+       let specialRuleMsg = "";
+        if (all.length >= 7 && roundNum === 4) {
+            specialRuleMsg = `<div style="color:var(--red); font-weight:bold; background:rgba(231, 76, 60, 0.2); padding:5px; border-radius:5px; margin-top:5px; border:1px solid var(--red); animation: blink 1s infinite;">
+                                ⚠️ 第4ラウンド特殊ルール：失敗2枚で遠征失敗
+                              </div>`;
+        }
+
         const failCount = data.voteFailCount || 0;
 
         const resultLog = document.getElementById('result-log');
@@ -627,7 +640,7 @@ window.leaveGame = () => {
 
        if (!data.phase || data.phase === 'PROPOSING') {
 
-            waitingMsg.innerHTML = `第 ${roundNum} ラウンド (必要人数: <b>${required}名</b>)<br>リーダー: ${leaderName}`;
+           waitingMsg.innerHTML = `第 ${roundNum} ラウンド (必要人数: <b>${required}名</b>)<br>リーダー: ${leaderName}${specialRuleMsg}`;
 
 
             // 🚩 リーダーが誰を選んでいるか全員に見えるようにする
