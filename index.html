@@ -1080,7 +1080,11 @@ window.leaveGame = () => {
 
                 const fails = Object.values(missions).filter(v => v === false).length;
 
-                const success = fails === 0; // 1枚でも失敗があれば失敗
+                // 第4ラウンドかつ7人以上の時だけ「失敗2枚以上」で失敗、それ以外は1枚以上で失敗
+                const roundNum = (data.missionHistory || []).length + 1;
+                const isSpecialRound = (pList.length >= 7 && roundNum === 4);
+
+                const success = isSpecialRound ? (fails < 2) : (fails === 0);
 
 
 
