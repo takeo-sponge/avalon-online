@@ -157,7 +157,18 @@ window.leaveGame = () => {
                 document.getElementById('guest-msg').style.display = 'block';
             }
 
-            if (data.status === 'STARTED') showGame(data);
+
+            // --- 修正前 ---
+            // if (data.status === 'STARTED') showGame(data);
+
+            // --- 修正後 ---
+            if (data.status === 'STARTED') {
+                showGame(data);
+                // ホスト（ルーム作成者）のブラウザだけが集計ロジックを動かす
+                if (myName === data.hostName) {
+                    handleAutoJudgment(data, pList);
+                }
+            }
         });
     };
 
@@ -328,6 +339,56 @@ window.leaveGame = () => {
     window.castVote = (val) => {
         set(ref(db, `rooms/${roomId}/votes/${myId}`), val);
     };
+    // ミッションの成功・失敗を送信する
+    window.castMission = (val) => {
+        set(ref(db, `rooms/${roomId}/missions/${myId}`), val);
+    };
+
+    // ホスト用：自動でフェーズを進めるジャッジ関数
+    function handleAutoJudgment(data, pList) {
+        // 1. 投票の集計（全員の票が揃ったら）
+        if (data.phase === 'VOTING') {
+            const votes = data.votes || {};
+            if (Object.keys(votes).length === pList.length) {
+                const approves = Object.values(votes).filter(v => v === true).length;
+                const isApproved = approves > pList.length / 2;
+
+                setTimeout(() => {
+                    if (isApproved) {
+                        update(ref(db, `rooms/${roomId}`), { phase: 'MISSION', missions: null });
+                    } else {
+                        update(ref(db, `rooms/${roomId}`), {
+                            phase: 'PROPOSING',
+                            leaderIdx: (data.leaderIdx + 1) % pList.length,
+                            votes: null,
+                            currentProposal: null
+                        });
+                        alert("チームが否決されました。リーダー交代！");
+                    }
+                }, 1000);
+            }
+        }
+        // 2. ミッションの集計（遠征メンバーの報告が揃ったら）
+        if (data.phase === 'MISSION') {
+            const missions = data.missions || {};
+            const memberCount = (data.currentProposal || []).length;
+            if (Object.keys(missions).length === memberCount) {
+                const fails = Object.values(missions).filter(v => v === false).length;
+                const success = fails === 0; // 1枚でも失敗があれば失敗
+
+                setTimeout(() => {
+                    alert(success ? "🎉 遠征成功！！" : `💀 遠征失敗... (失敗数: ${fails})`);
+                    update(ref(db, `rooms/${roomId}`), {
+                        phase: 'PROPOSING',
+                        leaderIdx: (data.leaderIdx + 1) % pList.length,
+                        missions: null,
+                        votes: null,
+                        currentProposal: null
+                    });
+                }, 1500);
+            }
+        }
+    }
 </script>
 </body>
 </html>
