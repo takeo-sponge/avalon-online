@@ -168,8 +168,6 @@
 
     <hr style="border:0; border-top:1px solid #444; margin:20px 0;">
 
-    <div id="action-area" style="margin-top:15px;"></div>
-
     <hr style="border:0; border-top:1px solid #444; margin:20px 0;">
     <div style="text-align: left; font-size: 0.8em; color: var(--accent); margin-bottom: 5px;">📜 ゲーム履歴</div>
     <div id="result-log" style="text-align: left; max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px solid #333;">
@@ -830,7 +828,7 @@ window.leaveGame = () => {
             } else {
                 actionArea.innerHTML = `<p>暗殺者（${assassin ? assassin.name : '？'}）の決断を待っています...</p>`;
             }
-        }
+       // }
 
        // showGame関数の最後、ASSASSINATIONの else if ブロックの後に追加
         if (data.status === 'FINISHED') {
@@ -931,8 +929,7 @@ window.leaveGame = () => {
         const isMerlin = targetPlayer.role === 'マーリン';
         const finalWinner = isMerlin ? 'Evil' : 'Good';
     
-        // 🚩 修正ポイント：alertの前にFirebaseを更新して、全員のフェーズを終了させる
-        // また、誰が誰を指名してどうなったかの結果もデータに含めると確実だよ
+        // 🚩 ここが重要：まずFirebaseを更新して、全員の状態を「FINISHED」にする
         await update(ref(db, `rooms/${roomId}`), {
             status: 'FINISHED',
             winner: finalWinner,
@@ -943,8 +940,7 @@ window.leaveGame = () => {
             }
         });
 
-        // 自分の画面用のアラートは更新後に。
-        // (他の人は showGame の status === 'FINISHED' で結果を見る仕組み)
+        // アラートは最後に出す（OKを押した瞬間に画面が切り替わるように）
         alert(isMerlin ? `🎯 正解！マーリン（${targetPlayer.name}）を暗殺成功！` : `❌ 残念！${targetPlayer.name} はマーリンではありませんでした。`);
     };
     
@@ -994,7 +990,7 @@ window.leaveGame = () => {
                 }
             }, 1000);
 
-            setTimeout(() => {
+          /*  setTimeout(() => {
 
                 if (isApproved) {
 
@@ -1045,6 +1041,7 @@ window.leaveGame = () => {
                 }
 
             }, 1000);
+            */
 
         }
 
