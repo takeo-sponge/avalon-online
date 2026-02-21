@@ -353,16 +353,11 @@ window.leaveGame = () => {
 
 
 
-            if (data.status === 'STARTED') {
-
+            if (data.status === 'STARTED' || data.status === 'FINISHED') {
                 showGame(data);
-
-                if (myName === data.hostName) {
-
+                if (data.status === 'STARTED' && myName === data.hostName) {
                     handleAutoJudgment(data, pList);
-
                 }
-
             }
 
         });
@@ -568,6 +563,31 @@ window.leaveGame = () => {
         const actionArea = document.getElementById('action-area');
 
         const waitingMsg = document.getElementById('waiting-msg');
+
+       if (data.status === 'FINISHED') {
+        const winnerText = data.winner === 'Good' ? '✨ 正義陣営の勝利！ ✨' : '💀 邪悪陣営の勝利！ 💀';
+        const winnerColor = data.winner === 'Good' ? 'var(--blue)' : 'var(--red)';
+        
+        const all = Object.values(data.players); // プレイヤーリスト取得
+        const resultList = all.map(p => 
+            `<li style="margin-bottom:8px; list-style:none;">
+                <span style="font-weight:bold; color:${p.side === 'Good' ? 'var(--blue)' : 'var(--red)'}">${p.name}</span>: 
+                <span style="color:var(--accent)">${p.role}</span>
+            </li>`
+        ).join('');
+
+        actionArea.innerHTML = `
+            <div style="background:rgba(255,255,255,0.1); padding:20px; border-radius:10px; border: 2px solid ${winnerColor}; margin-top: 20px;">
+                <h2 style="color:${winnerColor}; margin-top:0;">${winnerText}</h2>
+                <hr style="border:0; border-top:1px solid #444; margin:15px 0;">
+                <h4 style="margin-bottom:10px;">🛡️ 役職公開 🛡️</h4>
+                <ul style="padding:0; text-align:center;">${resultList}</ul>
+                <button class="btn" style="margin-top:20px; background:#444;" onclick="location.reload()">タイトルに戻る</button>
+            </div>
+        `;
+        waitingMsg.innerHTML = "ゲーム終了";
+        return; // 🚩 重要：ここで処理を終える
+    }
 
         
 
@@ -831,7 +851,7 @@ window.leaveGame = () => {
         }
 
        // showGame関数の最後、ASSASSINATIONの else if ブロックの後に追加
-        if (data.status === 'FINISHED') {
+    /*    if (data.status === 'FINISHED') {
             const winnerText = data.winner === 'Good' ? '✨ 正義陣営の勝利！ ✨' : '💀 邪悪陣営の勝利！ 💀';
             const winnerColor = data.winner === 'Good' ? 'var(--blue)' : 'var(--red)';
             
@@ -853,6 +873,7 @@ window.leaveGame = () => {
             `;
             waitingMsg.innerHTML = "ゲーム終了";
         }
+        */
 
     }
 
