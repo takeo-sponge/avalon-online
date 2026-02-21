@@ -160,16 +160,22 @@
 
     <div id="role-purpose" style="font-weight:bold; margin-bottom:15px; border-bottom:1px solid #444; padding-bottom:10px;"></div>
 
-    <div id="role-desc" style="background:rgba(0,0,0,0.4); padding:15px; border-radius:8px; text-align:left; font-size:0.9em;"></div>
-    <div id="result-log" style="margin: 15px 0; font-size: 0.85em; text-align: left; max-height: 150px; overflow-y: auto;"></div>
 
-    
-
-    <hr style="border:0; border-top:1px solid #444; margin:20px 0;">
 
     <p id="waiting-msg" style="font-size:0.9em; color:var(--accent);"></p>
 
     <div id="action-area" style="margin-top:15px;"></div>
+
+    <hr style="border:0; border-top:1px solid #444; margin:20px 0;">
+    <p id="waiting-msg" style="font-size:0.9em; color:var(--accent);"></p>
+    <div id="action-area" style="margin-top:15px;"></div>
+
+    <hr style="border:0; border-top:1px solid #444; margin:20px 0;">
+    <div style="text-align: left; font-size: 0.8em; color: var(--accent); margin-bottom: 5px;">📜 ゲーム履歴</div>
+    <div id="result-log" style="text-align: left; max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px solid #333;">
+        <p style="color:#666; font-size:0.9em;">履歴はまだありません</p>
+    </div>
+</div> ```
 
 </div>
 
@@ -577,24 +583,28 @@ window.leaveGame = () => {
 
         const failCount = data.voteFailCount || 0;
 
-       const resultLog = document.getElementById('result-log');
-        if (resultLog) {
-            if (data.lastVoteResult) {
-                const res = data.lastVoteResult;
-                const details = Object.entries(res.details).map(([id, v]) => 
-                    `<span style="color:${v ? 'var(--blue)' : 'var(--red)'}">${data.players[id] ? data.players[id].name : id}${v ? '◯' : '×'}</span>`
-                ).join(' ');
-                resultLog.innerHTML = `
-                    <div style="background:rgba(255,255,255,0.1); padding:8px; border-radius:5px; margin-bottom:10px;">
-                        <small>前回の投票結果: ${res.approved ? '✅承認' : '❌否決'}</small><br>
-                        <div style="margin-top:5px; font-size:0.9em;">${details}</div>
-                    </div>`;
-            } else if (failCount > 0) {
-                resultLog.innerHTML = `<div style="color:var(--red); margin-bottom:10px; padding:8px; border:1px solid var(--red); border-radius:5px;">⚠️ 否決されました (${failCount}/5)</div>`;
-            } else {
-                resultLog.innerHTML = "";
-            }
-        }
+        const resultLog = document.getElementById('result-log');
+         if (resultLog && data.lastVoteResult) {
+            // 注意：ここは「最新の1件」を表示する仕組みだけど、
+            // 履歴を「蓄積」させるにはFirebaseに全ログを保存するか、
+            // クライアント側で工夫する必要があるね。
+            // ひとまず、最新の「誰が誰を提案して、どうなったか」を詳細に出すよ。
+
+             const res = data.lastVoteResult;
+             const details = Object.entries(res.details).map(([id, v]) => 
+                 `<span style="color:${v ? 'var(--blue)' : 'var(--red)'}">${data.players[id] ? data.players[id].name : id}${v ? '◯' : '×'}</span>`
+             ).join(' ');
+
+             resultLog.innerHTML = `
+                 <div style="border-left: 4px solid ${res.approved ? 'var(--blue)' : 'var(--red)'}; padding-left: 10px; margin-bottom: 15px;">
+                     <strong style="color:var(--accent)">第 ${res.round}R - ${res.turn}回目提案</strong><br>
+                     <small>リーダー: ${res.leader}</small><br>
+                     <small>提案メンバー: ${res.team}</small><br>
+                     <div style="margin: 5px 0;">${res.approved ? '✅ 承認' : '❌ 否決'}</div>
+                     <div style="font-size: 0.9em; opacity: 0.8;">${details}</div>
+                 </div>
+             ` + resultLog.innerHTML; // 古いログを下に残す
+         } 
 
 
        if (!data.phase || data.phase === 'PROPOSING') {
@@ -880,7 +890,11 @@ window.leaveGame = () => {
             const isApproved = approves > pList.length / 2;
 
             // 投票結果のログを作成
-            const voteLog = {
+           const voteLog = {
+                round: data.missionHistory ? data.missionHistory.length + 1 : 1,
+                turn: (data.voteFailCount || 0) + 1,
+                leader: data.players[data.leaderIdx].name,
+                team: data.currentProposal.map(id => data.players[id].name).join(", "),
                 approved: isApproved,
                 details: votes
             };
