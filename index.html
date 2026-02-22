@@ -269,6 +269,12 @@
         const isLeader = data.leaderIdx == myId;
         const leaderName = data.players[data.leaderIdx] ? data.players[data.leaderIdx].name : "リーダー";
 
+       //ここに演出用追加してみる
+       if (data.status === 'STARTED' && !window.hasShownIntro) {
+        window.hasShownIntro = true; // 1回だけ出すためのフラグ
+        showRoleIntroduction(me.role);
+        }  
+
        // スコア表示
         const history = data.missionHistory || [];
         for (let i = 1; i <= 5; i++) {
@@ -781,6 +787,56 @@
         area.innerHTML = '<p style="color:#666; text-align:center;">履歴はまだありません</p>';
         return area;
     }
+
+    window.showRoleIntroduction = (roleName) => {
+        const imageMap = {
+            "マーリン": "merlin.jpg",
+            "パーシヴァル": "percival.jpg",
+            "正義の忠臣": "loyal.jpg",
+            "暗殺者": "assassin.jpg",
+            "モルガナ": "morgana.jpg",
+            "モードレッド": "mordred.jpg",
+            "オベロン": "oberon.jpg",
+            "邪悪の手先": "minion.jpg"
+        };
+
+        const overlay = document.createElement('div');
+        overlay.id = "role-intro-overlay"; // IDをつけておく
+        overlay.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 20000; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; color: white;
+            transition: opacity 1s;
+        `;
+        
+        overlay.innerHTML = `<h2 id="intro-text" style="font-size: 1.5em; opacity: 0; transition: opacity 1s;">あなたは...</h2>`;
+        document.body.appendChild(overlay);
+
+        setTimeout(() => {
+            const el = document.getElementById('intro-text');
+            if(el) el.style.opacity = "1";
+        }, 500);
+
+        setTimeout(() => {
+            const imgFile = imageMap[roleName] || 'default.jpg';
+            // 🚩 GitHub Pagesの場合、相対パスで images/ファイル名 でOK
+            const imgPath = `images/${imgFile}`; 
+            
+            overlay.innerHTML = `
+                <div style="text-align:center; animation: fadeIn 0.8s ease-out;">
+                    <div style="font-size: 1em; margin-bottom: 10px; color: #aaa;">あなたの正体は</div>
+                    <h1 style="font-size: 3em; color: var(--accent); margin-bottom: 20px; text-shadow: 0 0 20px var(--accent);">${roleName}</h1>
+                    <img src="${imgPath}" style="width: 250px; height: auto; border-radius: 15px; border: 2px solid #444;" 
+                         onerror="this.src='https://via.placeholder.com/250x350?text=No+Image'">
+                </div>
+            `;
+        }, 2500);
+
+        setTimeout(() => {
+            overlay.style.opacity = "0";
+            setTimeout(() => overlay.remove(), 1000);
+        }, 6500);
+    };
 </script>
 </body>
 </html>
