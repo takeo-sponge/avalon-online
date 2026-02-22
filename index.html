@@ -741,12 +741,12 @@
         setTimeout(() => {
             statusText.classList.remove('shaking');
             statusText.innerText = shuffled.filter(r => !r).length > 0 ? "遠征失敗..." : "遠征成功！";
-            const btn = document.createElement('button');
-            btn.className = 'btn';
-            btn.innerText = '閉じる';
-            btn.style.width = '200px';
-            btn.onclick = () => overlay.remove();
-            overlay.appendChild(btn);
+            setTimeout(() => {
+                overlay.style.opacity = "0";
+                overlay.style.transition = "opacity 0.8s";
+                setTimeout(() => overlay.remove(), 800);
+            }, 2000); 
+            
         }, 1500 + (shuffled.length * 1000) + 500);
     };
 
