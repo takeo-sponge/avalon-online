@@ -1,41 +1,25 @@
 <!DOCTYPE html>
-
 <html lang="ja">
-
 <head>
-
     <meta charset="UTF-8">
-
     <title>Avalon Online - Custom</title>
-
     <style>
-
         :root { --primary: #e94560; --bg: #1a1a2e; --card: #16213e; --accent: #f1c40f; --blue: #3498db; --red: #e74c3c; }
-
         body { font-family: sans-serif; background: var(--bg); color: #eee; text-align: center; padding: 20px; }
-
         .card { background: var(--card); padding: 20px; border-radius: 12px; max-width: 500px; margin: 10px auto; border: 1px solid #0f3460; }
-
         .btn { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: bold; }
-
         input[type="text"] { width: 90%; padding: 12px; margin: 10px 0; background: #000; color: #fff; border: 1px solid #444; border-radius: 4px; }
-
         .player-list { text-align: left; margin: 15px 0; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; }
-
         .config-section { background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-top: 15px; text-align: left; }
-
         .role-option { display: flex; align-items: center; margin: 8px 0; font-size: 0.9em; }
-
         .role-option input { margin-right: 10px; transform: scale(1.2); }
-
         .error-msg { color: var(--red); font-size: 0.8em; margin-top: 5px; display: none; }
-
         @keyframes blink {
             0% { opacity: 1; }
             50% { opacity: 0.5; }
             100% { opacity: 1; }
         }
-                /* 遠征カードの演出用スタイル */
+          /* 遠征カードの演出用スタイル */
         .mission-card {
             display: inline-block;
             width: 60px;
@@ -77,157 +61,79 @@
             100% { transform: translate(1px, 1px) rotate(0deg); }
         }
         .shaking { animation: shake 0.5s infinite; }
-        
-                
-
     </style>
-
 </head>
-
 <body>
 
-
-
 <div id="setup-screen" class="card">
-
     <h2>🏰 アヴァロン・オンライン</h2>
-
     <input type="text" id="player-name" placeholder="あなたの名前">
-
     <input type="text" id="room-id" placeholder="ルーム名">
-
     <div style="display:flex; gap:10px;">
-
         <button class="btn" style="background:var(--accent); color:#000;" onclick="joinGame(true)">ルームを作成</button>
-
         <button class="btn" onclick="joinGame(false)">ルームに参加</button>
-
     </div>
-
 </div>
 
-
-
 <div id="lobby-screen" class="card" style="display:none;">
-
     <h3>ルーム: <span id="room-display" style="color:var(--accent)"></span></h3>
-
-    
-
     <div class="player-list">
-
         <h4>参加者 (<span id="player-count">0</span>)</h4>
-
         <ul id="list-items" style="list-style:none; padding:0;"></ul>
-
     </div>
-
-
 
     <div id="host-panel" style="display:none;" class="config-section">
-
         <h4 style="margin-top:0; color:var(--accent);">👑 ホスト設定</h4>
-
-        
-
         <label style="font-size:0.9em;">プレイ人数を選択:</label>
-
         <select id="play-limit" style="width:100%; padding:8px; margin-bottom:15px; background:#000; color:#fff;">
-
             <option value="5">5人 (正義3 / 邪悪2)</option>
-
             <option value="6">6人 (正義4 / 邪悪2)</option>
-
             <option value="7">7人 (正義4 / 邪悪3)</option>
-
             <option value="8">8人 (正義5 / 邪悪3)</option>
-
             <option value="9">9人 (正義6 / 邪悪3)</option>
-
             <option value="10">10人 (正義6 / 邪悪4)</option>
-
         </select>
 
-
-
         <label style="font-size:0.9em;">追加役職の選択:</label>
-
         <div class="role-option"><input type="checkbox" checked disabled> マーリン (必須)</div>
-
         <div class="role-option"><input type="checkbox" id="role-percival"> パーシヴァル (正義)</div>
-
         <div class="role-option"><input type="checkbox" checked disabled> 暗殺者 (必須)</div>
-
         <div class="role-option"><input type="checkbox" id="role-morgana"> モルガナ (邪悪)</div>
-
         <div class="role-option"><input type="checkbox" id="role-mordred"> モードレッド (邪悪)</div>
-
         <div class="role-option"><input type="checkbox" id="role-oberon"> オベロン (邪悪)</div>
-
-
-
         <p id="role-error" class="error-msg">⚠️ 人数と役職の数が合いません！</p>
-
         <button class="btn" style="background:var(--accent); color:#000;" onclick="setupRoles()">設定を確定して開始</button>
-
     </div>
-
-    
 
     <div id="guest-msg" style="display:none; font-size:0.8em; color:#888;">ホストが設定を完了するのを待っています...</div>
-
     　<div style="margin-top: 30px; border-top: 1px solid #333; padding-top: 15px;">
-
     　<span style="font-size: 0.7em; color: #666; display: block; margin-bottom: 5px;">別の名前で入り直したい場合は：</span>
-
     　<button class="btn" style="background:transparent; border: 1px solid #444; color:#888; font-size:0.75em; width: auto; padding: 5px 15px;" onclick="leaveGame()">情報をクリアして退出</button>
-
 　　　</div>
-
      </div>
 
-
-
 <div id="game-screen" style="display:none;" class="card">
-
     <div id="mission-track" style="display:flex; justify-content:center; gap:10px; margin-bottom:20px;">
-
         <div class="round-circle" id="round-1" style="width:40px; height:40px; border-radius:50%; border:2px solid #444; display:flex; align-items:center; justify-content:center; font-weight:bold;">1</div>
-
         <div class="round-circle" id="round-2" style="width:40px; height:40px; border-radius:50%; border:2px solid #444; display:flex; align-items:center; justify-content:center; font-weight:bold;">2</div>
-
         <div class="round-circle" id="round-3" style="width:40px; height:40px; border-radius:50%; border:2px solid #444; display:flex; align-items:center; justify-content:center; font-weight:bold;">3</div>
-
         <div class="round-circle" id="round-4" style="width:40px; height:40px; border-radius:50%; border:2px solid #444; display:flex; align-items:center; justify-content:center; font-weight:bold;">4</div>
-
         <div class="round-circle" id="round-5" style="width:40px; height:40px; border-radius:50%; border:2px solid #444; display:flex; align-items:center; justify-content:center; font-weight:bold;">5</div>
-
     </div>
 
-    
-
     <h3 id="my-role-name" style="color:var(--accent); font-size:2em; margin:10px 0;"></h3>
-
     <div id="role-purpose" style="font-weight:bold; margin-bottom:15px; border-bottom:1px solid #444; padding-bottom:10px;"></div>
-    
     <div id="role-desc" style="background:rgba(0,0,0,0.4); padding:15px; border-radius:8px; text-align:left; font-size:0.9em;"></div>
-
     <p id="waiting-msg" style="font-size:0.9em; color:var(--accent);"></p>
-
     <div id="action-area" style="margin-top:15px;"></div>
-
     <hr style="border:0; border-top:1px solid #444; margin:20px 0;">
-
     <hr style="border:0; border-top:1px solid #444; margin:20px 0;">
     <div style="text-align: left; font-size: 0.8em; color: var(--accent); margin-bottom: 5px;">📜 ゲーム履歴</div>
     <div id="result-log" style="text-align: left; max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px solid #333;">
         <p style="color:#666; font-size:0.9em;">履歴はまだありません</p>
     </div>
 </div> ```
-
 </div>
-
-
 
 <script type="module">
 
@@ -235,281 +141,123 @@
 
     import { getDatabase, ref, set, onValue, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-
-
     const firebaseConfig = {
-
         apiKey: "AIzaSyAe0JL5gdcLJ16GTuTd9fU-MHeHaILbpCY",
-
         authDomain: "avalon-online-51a54.firebaseapp.com",
-
         databaseURL: "https://avalon-online-51a54-default-rtdb.asia-southeast1.firebasedatabase.app",
-
         projectId: "avalon-online-51a54",
-
         appId: "1:557710503935:web:f50ee0e3e2febe328601ca"
-
     };
 
-
-
     const app = initializeApp(firebaseConfig);
-
     const db = getDatabase(app);
-
     let myName = "", roomId = "", myId = null;
-
-        // 🚩 ここに追加！
     let lastProcessedVoteKey = "";
     let lastProcessedMissionKey = "";
 
-
-
-
-
     // Firebase初期化などのすぐ下に追加
-
 window.onload = () => {
-
     const savedName = localStorage.getItem('avalon_name');
-
     const savedRoom = localStorage.getItem('avalon_room');
-
-    //const savedIsHost = localStorage.getItem('avalon_isHost') === 'true';
-
-
-
     if (savedName && savedRoom) {
-
         document.getElementById('player-name').value = savedName;
-
         document.getElementById('room-id').value = savedRoom;
-
-        // 少しだけ待ってから実行（確実にFirebaseの準備を待つため）
-
-        /*
-
-        setTimeout(() => {
-
-            window.joinGame(savedIsHost);
-
-        }, 500);
-
-        */
-
     }
 
 };
-
-
 
 window.leaveGame = () => {
-
     if(confirm("保存情報を消してタイトルに戻りますか？")) {
-
         localStorage.clear();
-
         location.reload();
-
     }
 
 };
 
-    
-
     window.joinGame = async function(isHostRequest) {
-
         myName = document.getElementById('player-name').value.trim();
-
         roomId = document.getElementById('room-id').value.trim();
-
         if (!myName || !roomId) return alert("入力してね！");
-
-
-
         localStorage.setItem('avalon_name', myName);
-
         localStorage.setItem('avalon_room', roomId);
-
         localStorage.setItem('avalon_isHost', isHostRequest);
-
-
-
         const roomRef = ref(db, `rooms/${roomId}`);
-
         const snap = await get(roomRef);
-
         if (isHostRequest) await update(roomRef, { hostName: myName });
-
-
-
         const pSnap = await get(ref(db, `rooms/${roomId}/players`));
-
         const players = pSnap.val() || {};
-
         let foundId = Object.keys(players).find(id => players[id].name === myName);
-
         if (foundId === undefined) {
-
             foundId = Object.keys(players).length;
-
             await set(ref(db, `rooms/${roomId}/players/${foundId}`), { id: foundId, name: myName });
-
         }
-
         myId = foundId;
-
         document.getElementById('setup-screen').style.display = 'none';
-
         document.getElementById('lobby-screen').style.display = 'block';
-
         document.getElementById('room-display').innerText = roomId;
 
-
-
         onValue(roomRef, (snapshot) => {
-
             const data = snapshot.val();
-
             if (!data) return; // データがない時は何もしない
-
-
-
             const pList = data.players ? Object.values(data.players) : [];
-
             document.getElementById('player-count').innerText = pList.length;
-
-
-
             // 🚩 修正：フラッグが出るように比較を == に変更
-
             document.getElementById('list-items').innerHTML = pList.map(p => {
-
                 const isLeader = p.id == data.leaderIdx; 
-
                 const isHost = p.name === data.hostName;
-
                 return `<li>${isLeader ? '🚩 ' : '👤 '} ${p.name} ${isHost ? '👑' : ''}</li>`;
-
             }).join('');
 
-
-
             if (data.hostName === myName) {
-
                 document.getElementById('host-panel').style.display = 'block';
-
             } else {
-
                 document.getElementById('guest-msg').style.display = 'block';
-
             }
-
-
-
             if (data.status === 'STARTED' || data.status === 'FINISHED') {
                 showGame(data);
                 if (data.status === 'STARTED' && myName === data.hostName) {
                     handleAutoJudgment(data, pList);
                 }
             }
-
         });
-
     };
 
-
-
     window.setupRoles = async function() {
-
         const limit = parseInt(document.getElementById('play-limit').value);
-
         const snap = await get(ref(db, `rooms/${roomId}/players`));
-
-        
-
         if (!snap.exists()) {
-
             alert("プレイヤーが一人もいません！");
-
             return;
-
         }
-
-        
-
         const currentPlayers = Object.values(snap.val());
-
-
-
         if (currentPlayers.length !== limit) {
-
             alert(`エラー：設定された人数(${limit}人)と現在の参加人数(${currentPlayers.length}人)が一致しません！`);
-
             return;
-
         }
-
-
-
         // 陣営ごとの人数定義
-
         const config = { 5: [3, 2], 6: [4, 2], 7: [4, 3], 8: [5, 3], 9: [6, 3], 10: [6, 4] };
-
         const [gNeed, eNeed] = config[limit];
-
-
-
         let goodRoles = ["マーリン"];
-
         if (document.getElementById('role-percival').checked) goodRoles.push("パーシヴァル");
-
         while (goodRoles.length < gNeed) goodRoles.push("正義の忠臣");
-
-
-
         let evilRoles = ["暗殺者"];
-
         if (document.getElementById('role-morgana').checked) evilRoles.push("モルガナ");
-
         if (document.getElementById('role-mordred').checked) evilRoles.push("モードレッド");
-
         if (document.getElementById('role-oberon').checked) evilRoles.push("オベロン");
-
         while (evilRoles.length < eNeed) evilRoles.push("邪悪の手先");
-
-
-
         if (goodRoles.length > gNeed || evilRoles.length > eNeed) {
-
             alert("エラー：選んだ役職の数が、陣営の定員を超えています！");
-
             return;
-
         }
-
-
-
         let pool = [...goodRoles, ...evilRoles].sort(() => Math.random() - 0.5);
-
-
-
         // --- 修正後：リーダー(leaderIdx)やフェーズをしっかり設定する ---
-
         const updates = { 
-
             status: 'STARTED',
-
             phase: 'PROPOSING', 
-
             leaderIdx: 0,        // 最初のプレイヤーをリーダーにする
-
             votes: null,         // 念のため初期化
-
             missions: null       // 念のため初期化
-
         };
-
         currentPlayers.forEach((p, i) => {
             const roleName = pool[i];
             updates[`players/${p.id}/role`] = roleName;
@@ -517,85 +265,43 @@ window.leaveGame = () => {
             const evilRoles = ["暗殺者", "モルガナ", "モードレッド", "オベロン", "邪悪の手先"];
             updates[`players/${p.id}/side`] = evilRoles.includes(roleName) ? "Evil" : "Good";
         });
-
         update(ref(db, `rooms/${roomId}`), updates);
-
     };
-
-
-
+    
    function showGame(data) {
-
         if (!data.players || data.leaderIdx === undefined) return;
-
-        
-
         const me = data.players[myId];
-
         const all = Object.values(data.players);
-
         const isLeader = data.leaderIdx == myId;
-
         const leaderName = data.players[data.leaderIdx] ? data.players[data.leaderIdx].name : "リーダー";
 
-
-
-        // スコア表示
-
+       // スコア表示
         const history = data.missionHistory || [];
-
         for (let i = 1; i <= 5; i++) {
-
             const el = document.getElementById(`round-${i}`);
-
             const result = history[i - 1];
-
             el.style.background = result === true ? "var(--blue)" : (result === false ? "var(--red)" : "transparent");
-
             el.style.borderColor = (result === true || result === false) ? "transparent" : "#444";
-
         }
-
-
-
         document.getElementById('lobby-screen').style.display = 'none';
-
         document.getElementById('game-screen').style.display = 'block';
 
-        
-
         // 役職表示
-
         document.getElementById('my-role-name').innerText = me.role;
-
         const sideColor = me.side === "Good" ? "#3498db" : "#e74c3c";
-
         document.getElementById('role-purpose').innerHTML = `
-
             <span style="color:${sideColor}; font-size:1.2em;">【${me.side === "Good" ? "正義" : "邪悪"}陣営】</span><br>
-
             <span style="font-size:0.8em; opacity:0.8;">${me.side === "Good" ? "遠征を3回成功させよ！" : "遠征を3回失敗させるか、マーリンを暗殺せよ！"}</span>
-
         `;
 
-
-
         // スキル説明（中身は省略せずに保持）
-
         let info = "";
-
         if (me.role === "マーリン") {
-
             const evils = all.filter(p => p.side === "Evil" && p.role !== "モードレッド").map(p => p.name);
-
             info = `<b>🔮 予見した邪悪な者:</b><br>${evils.join(", ") || "なし"}`;
-
         } else if (me.role === "パーシヴァル") {
-
             const targets = all.filter(p => p.role === "マーリン" || p.role === "モルガナ").map(p => p.name);
-
             info = `<b>✨ マーリン候補:</b><br>${targets.join(", ")}`;
-
         } else if (me.role === "オベロン") {
             // 🚩 ここを追加：オベロン本人には誰も見えない
             info = "<b>⚠️ 孤独な邪悪:</b><br>あなたは邪悪陣営ですが、仲間を知ることはできず、仲間もあなたを知りません。";
@@ -608,17 +314,12 @@ window.leaveGame = () => {
         }
         document.getElementById('role-desc').innerHTML = info;
 
-
         // 3. UIの出し分け
-
         const actionArea = document.getElementById('action-area');
-
         const waitingMsg = document.getElementById('waiting-msg');
-
        if (data.status === 'FINISHED') {
         const winnerText = data.winner === 'Good' ? '✨ 正義陣営の勝利！ ✨' : '💀 邪悪陣営の勝利！ 💀';
         const winnerColor = data.winner === 'Good' ? 'var(--blue)' : 'var(--red)';
-        
         const all = Object.values(data.players); // プレイヤーリスト取得
         const resultList = all.map(p => 
             `<li style="margin-bottom:8px; list-style:none;">
@@ -639,33 +340,23 @@ window.leaveGame = () => {
         waitingMsg.innerHTML = "ゲーム終了";
         return; // 🚩 重要：ここで処理を終える
     }
-
-        
-
         // 🚩 修正：各ラウンドの必要人数を表示
-
         const roundNum = history.length + 1;
-
         const missionSizes = { 5:[2,3,2,3,3], 6:[2,3,4,3,4], 7:[2,3,3,4,4], 8:[3,4,4,5,5], 9:[3,4,4,5,5], 10:[3,4,4,5,5] };
-
         const required = missionSizes[all.length] ? missionSizes[all.length][history.length] : "?";
-
        let specialRuleMsg = "";
         if (all.length >= 7 && roundNum === 4) {
             specialRuleMsg = `<div style="color:var(--red); font-weight:bold; background:rgba(231, 76, 60, 0.2); padding:5px; border-radius:5px; margin-top:5px; border:1px solid var(--red); animation: blink 1s infinite;">
                                 ⚠️ 第4ラウンド特殊ルール：失敗2枚で遠征失敗
                               </div>`;
         }
-
         const failCount = data.voteFailCount || 0;
-
-     　const resultLog = document.getElementById('result-log');
+        const resultLog = document.getElementById('result-log');
             if (resultLog) {
                 // --- 🚩 投票ログの重複ガード ---
                 if (data.lastVoteResult) {
                     // 「ラウンド・ターン・結果」を組み合わせた専用のキーを作る
-                    const voteKey = `v_${data.lastVoteResult.round}_${data.lastVoteResult.turn}_${data.lastVoteResult.approved}`;
-                    
+                    const voteKey = `v_${data.lastVoteResult.round}_${data.lastVoteResult.turn}_${data.lastVoteResult.approved}`;            
                     // まだ表示していないキーの時だけ、HTMLを追加する
                     if (lastProcessedVoteKey !== voteKey) {
                         const res = data.lastVoteResult;
@@ -684,7 +375,6 @@ window.leaveGame = () => {
                         
                         // 「履歴はまだありません」を消す
                         if (resultLog.innerHTML.includes("履歴はまだありません")) resultLog.innerHTML = "";
-                        
                         resultLog.innerHTML = newVoteLog + resultLog.innerHTML;
                         lastProcessedVoteKey = voteKey; // 表示したことを記録！
                     }
@@ -694,11 +384,9 @@ window.leaveGame = () => {
                 if (data.lastMissionResult) {
                     // 「ラウンド・成功失敗」を組み合わせた専用のキーを作る
                     const missionKey = `m_${data.lastMissionResult.round}_${data.lastMissionResult.success}`;
-                    
                     if (lastProcessedMissionKey !== missionKey) {
                         const mRes = data.lastMissionResult;
                         const color = mRes.success ? 'var(--blue)' : 'var(--red)';
-                        
                         const newMissionLog = `
                             <div style="border-left: 4px solid ${color}; padding-left: 10px; margin-bottom: 15px; background: rgba(255,255,255,0.05); padding: 8px;">
                                 <strong style="color:${color}">🚀 第 ${mRes.round}R 遠征結果: ${mRes.success ? '成功' : '失敗'}</strong><br>
@@ -707,228 +395,108 @@ window.leaveGame = () => {
                                     失敗カード: <b style="color:var(--red)">${mRes.fails} 枚</b>
                                 </div>
                             </div>`;
-                        
                         if (resultLog.innerHTML.includes("履歴はまだありません")) resultLog.innerHTML = "";
-                        
                         resultLog.innerHTML = newMissionLog + resultLog.innerHTML;
                         const cards = [];
                             for(let i=0; i < (mRes.successes || 0); i++) cards.push(true);
                             for(let i=0; i < (mRes.fails || 0); i++) cards.push(false);
-                            
                             if (cards.length > 0) {
                                 window.animateMissionResult(cards);
                             }
-                        
                         lastProcessedMissionKey = missionKey; // 表示したことを記録！
                     }
                 }
             }
 // 🚩 【ここまで追加】
-
-
        if (!data.phase || data.phase === 'PROPOSING') {
-
            waitingMsg.innerHTML = `第 ${roundNum} ラウンド (必要人数: <b>${required}名</b>)<br>リーダー: ${leaderName}${specialRuleMsg}`;
-
-
             // 🚩 リーダーが誰を選んでいるか全員に見えるようにする
-
             // data.currentProposal がリアルタイムで更新される想定（後述の修正が必要）
-
             const currentSelected = data.currentProposal || [];
-
-            
-
             const memberListHtml = all.map(p => {
-
                 const isSelected = currentSelected.includes(String(p.id));
-
                 const isPLeader = p.id == data.leaderIdx;
-
                 return `
-
                     <div style="margin-bottom:5px;">
-
                         <label>
-
                             <input type="checkbox" class="team-check" value="${p.id}" 
-
                                 ${isSelected ? 'checked' : ''} 
-
                                 ${isLeader ? '' : 'disabled'}> 
-
                             ${isPLeader ? '🚩' : ''} ${p.name}
-
                         </label>
-
                     </div>`;
-
             }).join('');
 
-
-
             if (isLeader) {
-
                 const isLastChance = failCount >= 4;
-
                 actionArea.innerHTML = `
-
                     <h4 style="margin:0 0 10px 0;">${isLastChance ? '【最終確認】' : ''}遠征メンバーを選択</h4>
-
                     <div style="text-align:left; background:rgba(255,255,255,0.05); padding:10px; border-radius:5px;">
-
                         ${memberListHtml}
-
                     </div>
-
                     <button class="btn" onclick="sendProposal(${isLastChance})">
-
                         ${isLastChance ? '強制遠征を開始する' : '提案を確定する'}
-
                     </button>
-
                 `;
-
-
-
                 // 🚩 リーダーがチェックを変えるたびにFirebaseに保存する仕組みを追加（リアルタイム同期用）
-
                 setTimeout(() => {
-
                     document.querySelectorAll('.team-check').forEach(el => {
-
                         el.onchange = () => {
-
                             const selected = Array.from(document.querySelectorAll('.team-check:checked')).map(cb => cb.value);
-
                             update(ref(db, `rooms/${roomId}`), { currentProposal: selected });
-
                         };
-
                     });
-
                 }, 100);
-
-
-
             } else {
-
                 actionArea.innerHTML = `
-
                     <p>${leaderName}がメンバーを選考中...</p>
-
                     <div style="text-align:left; background:rgba(255,255,255,0.05); padding:10px; border-radius:5px; opacity:0.8;">
-
                         ${memberListHtml}
-
                     </div>
-
                     <p><small>(否決回数: ${failCount}/5)</small></p>
-
                 `;
-
             }
-
         }
-
         else if (data.phase === 'VOTING') {
-
             const teamIds = data.currentProposal || [];
-
             const teamNames = teamIds.map(id => data.players[id].name).join(", ");
-
             waitingMsg.innerText = "チーム承認投票中...";
-
             if (!data.votes || data.votes[myId] === undefined) {
-
                 actionArea.innerHTML = `
-
                     <p>提案されたチーム: <b style="color:var(--accent)">${teamNames}</b></p>
-
                     <div style="display:flex; gap:10px;">
-
                         <button class="btn" style="background:var(--blue)" onclick="castVote(true)">承認</button>
-
                         <button class="btn" style="background:var(--red)" onclick="castVote(false)">却下</button>
-
                     </div>
-
                 `;
-
             } else {
-
                 actionArea.innerHTML = "<p>他のプレイヤーの投票を待っています...</p>";
-
             }
-
         }
-
         else if (data.phase === 'MISSION') {
-
             const teamIds = data.currentProposal || [];
-
             const teamNames = teamIds.map(id => data.players[id] ? data.players[id].name : "不明").join(", ");
-
             const isMember = teamIds.includes(String(myId));
-
-
-
             const resultLog = document.getElementById('result-log');
-              
-
-          /*  if (data.phase === 'PROPOSING' && data.voteFailCount > 0) {
-
-                resultLog.innerHTML = `<div style="color:var(--red); padding:10px; border:1px solid var(--red); margin-bottom:10px; border-radius:5px;">
-
-                    ⚠️ 提案が否決されました！ (現在 ${data.voteFailCount}/5 回却下)
-
-                </div>`;
-
-            } else {
-
-                resultLog.innerHTML = "";
-
-            }
-            */
-
             waitingMsg.innerHTML = `<span style="color:var(--accent)">遠征中: ${teamNames}</span>`;
-
             if (isMember) {
-
                 if (!data.missions || data.missions[myId] === undefined) {
-
                     actionArea.innerHTML = `
-
                         <div style="border:2px solid var(--accent); padding:10px; border-radius:10px;">
-
                             <p>この遠征を...</p>
-
                             <div style="display:flex; gap:10px;">
-
                                 <button class="btn" style="background:var(--blue)" onclick="castMission(true)">成功させる</button>
-
                                 ${me.side === 'Evil' ? `<button class="btn" style="background:var(--red)" onclick="castMission(false)">失敗させる</button>` : ''}
-
                             </div>
-
                         </div>
-
                     `;
-
                 } else {
-
                     actionArea.innerHTML = "<p>報告完了。待機中...</p>";
-
                 }
-
             } else {
-
                 actionArea.innerHTML = "<p>遠征メンバー以外の人は議論して待ってね！</p>";
-
             }
-
         }
-
        // 👈 ここに新しく追加！
         else if (data.phase === 'ASSASSINATION') {
             const assassin = all.find(p => p.role === '暗殺者');
@@ -950,60 +518,26 @@ window.leaveGame = () => {
                 actionArea.innerHTML = `<p>暗殺者（${assassin ? assassin.name : '？'}）の決断を待っています...</p>`;
             }
         }
-
-       // showGame関数の最後、ASSASSINATIONの else if ブロックの後に追加
-    /*    if (data.status === 'FINISHED') {
-            const winnerText = data.winner === 'Good' ? '✨ 正義陣営の勝利！ ✨' : '💀 邪悪陣営の勝利！ 💀';
-            const winnerColor = data.winner === 'Good' ? 'var(--blue)' : 'var(--red)';
-            
-            const resultList = all.map(p => 
-                `<li style="margin-bottom:8px; list-style:none;">
-                    <span style="font-weight:bold; color:${p.side === 'Good' ? 'var(--blue)' : 'var(--red)'}">${p.name}</span>: 
-                    <span style="color:var(--accent)">${p.role}</span>
-                </li>`
-            ).join('');
-
-            actionArea.innerHTML = `
-                <div style="background:rgba(255,255,255,0.1); padding:20px; border-radius:10px; border: 2px solid ${winnerColor}; margin-top: 20px;">
-                    <h2 style="color:${winnerColor}; margin-top:0;">${winnerText}</h2>
-                    <hr style="border:0; border-top:1px solid #444; margin:15px 0;">
-                    <h4 style="margin-bottom:10px;">🛡️ 役職公開 🛡️</h4>
-                    <ul style="padding:0; text-align:center;">${resultList}</ul>
-                    <button class="btn" style="margin-top:20px; background:#444;" onclick="location.reload()">タイトルに戻る</button>
-                </div>
-            `;
-            waitingMsg.innerHTML = "ゲーム終了";
-        }
-        */
-
     }
 
-
-
     // 🚩 修正：提案時に5人目かどうかを判断
-
 // 🚩 window.sendProposal を修正
    window.sendProposal = async (isForced) => {
-    const selected = Array.from(document.querySelectorAll('.team-check:checked')).map(el => el.value);
-    
+    const selected = Array.from(document.querySelectorAll('.team-check:checked')).map(el => el.value);    
     // 🚩 修正ポイント：Firebaseから最新の「ミッション履歴」を直接取ってラウンド数を計算する
     const snap = await get(ref(db, `rooms/${roomId}`));
     const data = snap.val();
     const history = data.missionHistory || [];
     const historyCount = history.length; // これで確実に「今何ラウンド目か」がわかる
-    
     const allPlayers = Object.keys(data.players).length;
     const missionSizes = { 
         5:[2,3,2,3,3], 6:[2,3,4,3,4], 7:[2,3,3,4,4], 
         8:[3,4,4,5,5], 9:[3,4,4,5,5], 10:[3,4,4,5,5] 
     };
-    
     const required = missionSizes[allPlayers] ? missionSizes[allPlayers][historyCount] : 0;
-
     if (selected.length !== required) {
         return alert(`人数が違います！ ${required} 名選んでください。（現在は ${selected.length} 名です）`);
     }
-
     if (isForced) {
         if (!confirm("5人目のリーダーなので投票なしで強制出発します。よろしいですか？")) return;
         update(ref(db, `rooms/${roomId}`), {
@@ -1020,24 +554,14 @@ window.leaveGame = () => {
         });
     }
 };
-
     // --- ここから下は新しい関数として追加 ---
-
-
     window.castVote = (val) => {
-
         set(ref(db, `rooms/${roomId}/votes/${myId}`), val);
-
     };
-
     // ミッションの成功・失敗を送信する
-
     window.castMission = (val) => {
-
         set(ref(db, `rooms/${roomId}/missions/${myId}`), val);
-
     };
-
         // 🚩 scriptタグの最後の方、window.castMission の下あたりに追加
     window.executeAssassination = async (targetId) => {
         const snap = await get(ref(db, `rooms/${roomId}`));
@@ -1063,22 +587,15 @@ window.leaveGame = () => {
        // 🚩 全員の画面がFINISHEDに切り替わるはずなので、ここのalertは「結果表示」の補助として扱う
     console.log("Game Finished: Winner is " + finalWinner);
 };
-
-
     // ホスト用：自動でフェーズを進めるジャッジ関数
 
     function handleAutoJudgment(data, pList) {
 
     if (data.phase === 'VOTING') {
-
         const votes = data.votes || {};
-
         if (Object.keys(votes).length === pList.length) {
-
             const approves = Object.values(votes).filter(v => v === true).length;
-
             const isApproved = approves > pList.length / 2;
-
             // 投票結果のログを作成
            const voteLog = {
                 round: data.missionHistory ? data.missionHistory.length + 1 : 1,
@@ -1108,32 +625,23 @@ window.leaveGame = () => {
                     });
                 }
             }, 1000);
-
         // 2. ミッションの集計（遠征メンバーの報告が揃ったら）
-
         if (data.phase === 'MISSION') {
-
             const missions = data.missions || {};
-
             const memberCount = (data.currentProposal || []).length;
-
             if (Object.keys(missions).length === memberCount) {
-
                 const fails = Object.values(missions).filter(v => v === false).length;
                 const successes = Object.values(missions).filter(v => v === true).length;
-
                 // 第4ラウンドかつ7人以上の時だけ「失敗2枚以上」で失敗、それ以外は1枚以上で失敗
                 const roundNum = (data.missionHistory || []).length + 1;
                 const isSpecialRound = (pList.length >= 7 && roundNum === 4);
-
                 const success = isSpecialRound ? (fails < 2) : (fails === 0);
                 setTimeout(() => {
                     alert(success ? "🎉 遠征成功！！" : `💀 遠征失敗... (失敗数: ${fails})`);
-                
                     // 1. まず履歴に今回の結果を追加する！
                     const currentHistory = data.missionHistory || [];
                     currentHistory.push(success);
-                
+
                     // 🚩 【追加】ログ用のデータを作成
                     const missionLog = {
                         round: currentHistory.length,
@@ -1145,8 +653,7 @@ window.leaveGame = () => {
                 
                     // 2. 追加した「後」のリストで、勝利数を数える
                     const wins = currentHistory.filter(v => v === true).length;
-                    const losses = currentHistory.filter(v => v === false).length;
-                
+                    const losses = currentHistory.filter(v => v === false).length;                
                     if (wins === 3 || losses === 3) {
                         if (wins === 3) {
                             alert("正義陣営が3任務成功！...しかし、暗殺者のターンが始まります。");
@@ -1179,15 +686,11 @@ window.leaveGame = () => {
                     }
                 }, 1500);
             }
-
         }
-
     }
-
      window.animateMissionResult = (results) => {
         // 既に演出中なら無視
         if (document.getElementById('overlay-mission')) return;
-    
         const overlay = document.createElement('div');
         overlay.id = 'overlay-mission';
         overlay.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:1000; display:flex; flex-direction:column; align-items:center; justify-content:center;";
@@ -1200,7 +703,6 @@ window.leaveGame = () => {
             <div id="card-container"></div>
         `;
         document.body.appendChild(overlay);
-    
         const container = document.getElementById('card-container');
         const statusText = document.getElementById('mission-status-text');
     
@@ -1232,18 +734,20 @@ window.leaveGame = () => {
             btn.onclick = () => overlay.remove();
             overlay.appendChild(btn);
         }, 1500 + (shuffled.length * 1000) + 500);
-    };
+        };
+    }
+    }
+    
 
     function createLogArea() {
     const area = document.createElement('div');
     area.id = 'result-log';
     const parent = document.getElementById('game-screen');
-    parent.insertBefore(area, document.getElementById('waiting-msg'));
+    if (parent) {
+            parent.insertBefore(area, document.getElementById('waiting-msg'));
+       }
     return area;
     }
-
 </script>
-
 </body>
-
 </html>
