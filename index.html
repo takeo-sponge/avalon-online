@@ -548,20 +548,17 @@ window.leaveGame = () => {
 
             info = `<b>✨ マーリン候補:</b><br>${targets.join(", ")}`;
 
+        } else if (me.role === "オベロン") {
+            // 🚩 ここを追加：オベロン本人には誰も見えない
+            info = "<b>⚠️ 孤独な邪悪:</b><br>あなたは邪悪陣営ですが、仲間を知ることはできず、仲間もあなたを知りません。";
         } else if (me.side === "Evil") {
-
+            // 🚩 ここを修正：仲間からオベロンを除外
             const friends = all.filter(p => p.side === "Evil" && p.id != myId && p.role !== "オベロン").map(p => p.name);
-
             info = `<b>😈 邪悪な仲間:</b><br>${friends.join(", ") || "なし"}`;
-
         } else {
-
             info = "特別な力はありません。話し合いで邪悪を見つけましょう。";
-
         }
-
         document.getElementById('role-desc').innerHTML = info;
-
 
 
         // 3. UIの出し分け
