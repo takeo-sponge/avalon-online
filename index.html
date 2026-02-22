@@ -136,11 +136,8 @@
 </div>
 
 <script type="module">
-
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-
     import { getDatabase, ref, set, onValue, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-
     const firebaseConfig = {
         apiKey: "AIzaSyAe0JL5gdcLJ16GTuTd9fU-MHeHaILbpCY",
         authDomain: "avalon-online-51a54.firebaseapp.com",
@@ -148,31 +145,27 @@
         projectId: "avalon-online-51a54",
         appId: "1:557710503935:web:f50ee0e3e2febe328601ca"
     };
-
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     let myName = "", roomId = "", myId = null;
     let lastProcessedVoteKey = "";
     let lastProcessedMissionKey = "";
-
     // Firebase初期化などのすぐ下に追加
-window.onload = () => {
-    const savedName = localStorage.getItem('avalon_name');
-    const savedRoom = localStorage.getItem('avalon_room');
-    if (savedName && savedRoom) {
-        document.getElementById('player-name').value = savedName;
-        document.getElementById('room-id').value = savedRoom;
-    }
+    window.onload = () => {
+        const savedName = localStorage.getItem('avalon_name');
+        const savedRoom = localStorage.getItem('avalon_room');
+        if (savedName && savedRoom) {
+            document.getElementById('player-name').value = savedName;
+            document.getElementById('room-id').value = savedRoom;
+        }
+    };
 
-};
-
-window.leaveGame = () => {
-    if(confirm("保存情報を消してタイトルに戻りますか？")) {
-        localStorage.clear();
-        location.reload();
-    }
-
-};
+    window.leaveGame = () => {
+        if(confirm("保存情報を消してタイトルに戻りますか？")) {
+            localStorage.clear();
+            location.reload();
+        }
+    };
 
     window.joinGame = async function(isHostRequest) {
         myName = document.getElementById('player-name').value.trim();
@@ -689,16 +682,14 @@ window.leaveGame = () => {
             }
         }
     }
+    }
      window.animateMissionResult = (results) => {
-        // 既に演出中なら無視
         if (document.getElementById('overlay-mission')) return;
         const overlay = document.createElement('div');
         overlay.id = 'overlay-mission';
         overlay.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:1000; display:flex; flex-direction:column; align-items:center; justify-content:center;";
         
-        // 結果をシャッフル（誰がどれを出したか隠す）
         const shuffled = [...results].sort(() => Math.random() - 0.5);
-        
         overlay.innerHTML = `
             <h2 id="mission-status-text" class="shaking" style="color:var(--accent); margin-bottom:20px;">結果を回収中...</h2>
             <div id="card-container"></div>
@@ -707,7 +698,6 @@ window.leaveGame = () => {
         const container = document.getElementById('card-container');
         const statusText = document.getElementById('mission-status-text');
     
-        // 1枚ずつカードを生成
         shuffled.forEach((res, i) => {
             const card = document.createElement('div');
             card.className = 'mission-card';
@@ -716,15 +706,12 @@ window.leaveGame = () => {
                 <div class="card-front ${res ? 'card-success' : 'card-fail'}">${res ? '成功' : '失敗'}</div>
             `;
             container.appendChild(card);
-    
-            // 時間差で1枚ずつめくる
             setTimeout(() => {
                 card.classList.add('reveal');
                 if (!res) statusText.style.color = 'var(--red)';
             }, 1500 + (i * 1000));
         });
     
-        // 全部めくり終わったら閉じるボタンを出す
         setTimeout(() => {
             statusText.classList.remove('shaking');
             statusText.innerText = shuffled.filter(r => !r).length > 0 ? "遠征失敗..." : "遠征成功！";
@@ -735,19 +722,16 @@ window.leaveGame = () => {
             btn.onclick = () => overlay.remove();
             overlay.appendChild(btn);
         }, 1500 + (shuffled.length * 1000) + 500);
-        };
-    }
-
-    
+    };
 
     function createLogArea() {
-    const area = document.createElement('div');
-    area.id = 'result-log';
-    const parent = document.getElementById('game-screen');
-    if (parent) {
+        const area = document.createElement('div');
+        area.id = 'result-log';
+        const parent = document.getElementById('game-screen');
+        if (parent) {
             parent.insertBefore(area, document.getElementById('waiting-msg'));
-       }
-    return area;
+        }
+        return area;
     }
 </script>
 </body>
