@@ -565,24 +565,48 @@
         const targetPlayer = data.players[targetId];
         
         if (!confirm(`${targetPlayer.name} を暗殺しますか？`)) return;
-    
+
+        // --- 🚩 1. 暗殺演出（タメ）の開始 ---
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 9999; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; transition: background 0.5s;
+        `;
+        overlay.innerHTML = `
+            <div id="assassin-mark" style="font-size: 80px; filter: drop-shadow(0 0 20px red); margin-bottom: 20px;">🏹</div>
+            <h1 id="assassin-text" style="color: #fff; font-family: serif; letter-spacing: 5px;">TARGET ACQUIRED...</h1>
+        `;
+        document.body.appendChild(overlay);
+
+        // --- 🚩 2. 数秒待機して緊張感を出す ---
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // 画面を赤く染める！
+        overlay.style.background = "radial-gradient(circle, #800 0%, #000 100%)";
+        document.getElementById('assassin-text').innerText = "EXECUTING...";
+        document.getElementById('assassin-mark').style.transform = "scale(1.5)";
+        document.getElementById('assassin-mark').style.transition = "transform 0.2s";
+
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // --- 🚩 3. 判定とFirebase更新 ---
         const isMerlin = targetPlayer.role === 'マーリン';
         const finalWinner = isMerlin ? 'Evil' : 'Good';
     
-        // 🚩 ここが重要：まずFirebaseを更新して、全員の状態を「FINISHED」にする
         await update(ref(db, `rooms/${roomId}`), {
-        status: 'FINISHED',
-        winner: finalWinner,
-        phase: 'FINISHED',
-        assassinationResult: {
-            targetName: targetPlayer.name,
-            isMerlin: isMerlin
-        }
-    });
+            status: 'FINISHED',
+            winner: finalWinner,
+            phase: 'FINISHED',
+            assassinationResult: {
+                targetName: targetPlayer.name,
+                isMerlin: isMerlin
+            }
+        });
 
-       // 🚩 全員の画面がFINISHEDに切り替わるはずなので、ここのalertは「結果表示」の補助として扱う
-    console.log("Game Finished: Winner is " + finalWinner);
-};
+        // 最後にオーバーレイを消す
+        setTimeout(() => overlay.remove(), 1000);
+    };
     // ホスト用：自動でフェーズを進めるジャッジ関数
 
     function handleAutoJudgment(data, pList) {
