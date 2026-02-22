@@ -35,6 +35,50 @@
             50% { opacity: 0.5; }
             100% { opacity: 1; }
         }
+                /* 遠征カードの演出用スタイル */
+        .mission-card {
+            display: inline-block;
+            width: 60px;
+            height: 90px;
+            margin: 10px;
+            background: var(--card);
+            border: 2px solid var(--accent);
+            border-radius: 8px;
+            line-height: 90px;
+            font-size: 1.2em;
+            font-weight: bold;
+            perspective: 1000px;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            cursor: default;
+        }
+        .mission-card.reveal {
+            transform: rotateY(180deg);
+        }
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .card-back { background: #2c3e50; color: #2c3e50; } /* 伏せてる時は真っ暗 */
+        .card-front { transform: rotateY(180deg); color: white; }
+        .card-success { background: var(--blue); }
+        .card-fail { background: var(--red); }
+        
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            20% { transform: translate(-1px, -2px) rotate(-1deg); }
+            50% { transform: translate(-3px, 0px) rotate(1deg); }
+            100% { transform: translate(1px, 1px) rotate(0deg); }
+        }
+        .shaking { animation: shake 0.5s infinite; }
+        
+                
 
     </style>
 
@@ -667,6 +711,14 @@ window.leaveGame = () => {
                         if (resultLog.innerHTML.includes("履歴はまだありません")) resultLog.innerHTML = "";
                         
                         resultLog.innerHTML = newMissionLog + resultLog.innerHTML;
+                        const cards = [];
+                            for(let i=0; i < (mRes.successes || 0); i++) cards.push(true);
+                            for(let i=0; i < (mRes.fails || 0); i++) cards.push(false);
+                            
+                            if (cards.length > 0) {
+                                window.animateMissionResult(cards);
+                            }
+                        
                         lastProcessedMissionKey = missionKey; // 表示したことを記録！
                     }
                 }
@@ -1057,64 +1109,6 @@ window.leaveGame = () => {
                 }
             }, 1000);
 
-          /*  setTimeout(() => {
-
-                if (isApproved) {
-
-                    // 承認：ミッションフェーズへ
-
-                    update(ref(db, `rooms/${roomId}`), { 
-
-                        phase: 'MISSION', 
-
-                        missions: null,
-
-                        voteFailCount: 0 // 遠征が決まったらカウントリセット
-
-                    });
-
-                } else {
-
-                    // 否決：カウントを増やして次のリーダーへ
-
-                    const nextFailCount = (data.voteFailCount || 0) + 1;
-
-                    
-
-                    // ここでFirebaseを更新！これで全員の画面が変わる
-
-                    update(ref(db, `rooms/${roomId}`), {
-
-                        phase: 'PROPOSING',
-
-                        leaderIdx: (data.leaderIdx + 1) % pList.length,
-
-                        votes: null,
-
-                        currentProposal: null,
-
-                        voteFailCount: nextFailCount // 🔥 ここでカウントを保存！
-
-                    });
-
-                    
-
-                    // ホストだけアラート出すとズレるので、
-
-                    // 全員共通のメッセージにするなら showGame 内で出すのがいいけど、
-
-                    // まずはこれでデータが全員に飛ぶようになるよ。
-
-                }
-
-            }, 1000);
-            */
-
-        }
-
-    }
-
-
         // 2. ミッションの集計（遠征メンバーの報告が揃ったら）
 
         if (data.phase === 'MISSION') {
@@ -1126,6 +1120,7 @@ window.leaveGame = () => {
             if (Object.keys(missions).length === memberCount) {
 
                 const fails = Object.values(missions).filter(v => v === false).length;
+                const successes = Object.values(missions).filter(v => v === true).length;
 
                 // 第4ラウンドかつ7人以上の時だけ「失敗2枚以上」で失敗、それ以外は1枚以上で失敗
                 const roundNum = (data.missionHistory || []).length + 1;
@@ -1144,6 +1139,7 @@ window.leaveGame = () => {
                         round: currentHistory.length,
                         team: data.currentProposal.map(id => data.players[id].name).join(", "),
                         fails: fails,
+                        successes: successes,
                         success: success
                     };
                 
@@ -1188,13 +1184,63 @@ window.leaveGame = () => {
 
     }
 
+     window.animateMissionResult = (results) => {
+        // 既に演出中なら無視
+        if (document.getElementById('overlay-mission')) return;
+    
+        const overlay = document.createElement('div');
+        overlay.id = 'overlay-mission';
+        overlay.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:1000; display:flex; flex-direction:column; align-items:center; justify-content:center;";
+        
+        // 結果をシャッフル（誰がどれを出したか隠す）
+        const shuffled = [...results].sort(() => Math.random() - 0.5);
+        
+        overlay.innerHTML = `
+            <h2 id="mission-status-text" class="shaking" style="color:var(--accent); margin-bottom:20px;">結果を回収中...</h2>
+            <div id="card-container"></div>
+        `;
+        document.body.appendChild(overlay);
+    
+        const container = document.getElementById('card-container');
+        const statusText = document.getElementById('mission-status-text');
+    
+        // 1枚ずつカードを生成
+        shuffled.forEach((res, i) => {
+            const card = document.createElement('div');
+            card.className = 'mission-card';
+            card.innerHTML = `
+                <div class="card-back">?</div>
+                <div class="card-front ${res ? 'card-success' : 'card-fail'}">${res ? '成功' : '失敗'}</div>
+            `;
+            container.appendChild(card);
+    
+            // 時間差で1枚ずつめくる
+            setTimeout(() => {
+                card.classList.add('reveal');
+                if (!res) statusText.style.color = 'var(--red)';
+            }, 1500 + (i * 1000));
+        });
+    
+        // 全部めくり終わったら閉じるボタンを出す
+        setTimeout(() => {
+            statusText.classList.remove('shaking');
+            statusText.innerText = shuffled.filter(r => !r).length > 0 ? "遠征失敗..." : "遠征成功！";
+            const btn = document.createElement('button');
+            btn.className = 'btn';
+            btn.innerText = '閉じる';
+            btn.style.width = '200px';
+            btn.onclick = () => overlay.remove();
+            overlay.appendChild(btn);
+        }, 1500 + (shuffled.length * 1000) + 500);
+    };
+
     function createLogArea() {
     const area = document.createElement('div');
     area.id = 'result-log';
     const parent = document.getElementById('game-screen');
     parent.insertBefore(area, document.getElementById('waiting-msg'));
     return area;
-}
+    }
 
 </script>
 
