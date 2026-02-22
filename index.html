@@ -188,7 +188,7 @@
         document.getElementById('setup-screen').style.display = 'none';
         document.getElementById('lobby-screen').style.display = 'block';
         document.getElementById('room-display').innerText = roomId;
-        createLogArea();
+       // createLogArea();
 
         onValue(roomRef, (snapshot) => {
             const data = snapshot.val();
