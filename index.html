@@ -658,58 +658,6 @@
                 const roundNum = (data.missionHistory || []).length + 1;
                 const isSpecialRound = (pList.length >= 7 && roundNum === 4);
                 const success = isSpecialRound ? (fails < 2) : (fails === 0);
-                
-               /* setTimeout(() => {
-                    alert(success ? "🎉 遠征成功！！" : `💀 遠征失敗... (失敗数: ${fails})`);
-                    // 1. まず履歴に今回の結果を追加する！
-                    const currentHistory = data.missionHistory || [];
-                    currentHistory.push(success);
-
-                    // 🚩 【追加】ログ用のデータを作成
-                    const missionLog = {
-                        round: currentHistory.length,
-                        team: data.currentProposal.map(id => data.players[id].name).join(", "),
-                        fails: fails,
-                        successes: successes,
-                        success: success
-                    };
-                
-                    // 2. 追加した「後」のリストで、勝利数を数える
-                    const wins = currentHistory.filter(v => v === true).length;
-                    const losses = currentHistory.filter(v => v === false).length;                
-                    if (wins === 3 || losses === 3) {
-                        if (wins === 3) {
-                            alert("正義陣営が3任務成功！...しかし、暗殺者のターンが始まります。");
-                            update(ref(db, `rooms/${roomId}`), {
-                                phase: 'ASSASSINATION',
-                                missionHistory: currentHistory,
-                                lastMissionResult: missionLog // 🚩 ログを保存
-                            });
-                        } else {
-                            alert("邪悪陣営の勝利！！");
-                            update(ref(db, `rooms/${roomId}`), {
-                                status: 'FINISHED',
-                                winner: 'Evil',
-                                phase: 'FINISHED',
-                                missionHistory: currentHistory,
-                                lastMissionResult: missionLog // 🚩 ログを保存
-                            });
-                        }
-                    } else {
-                        // 続行の場合
-                        update(ref(db, `rooms/${roomId}`), {
-                            phase: 'PROPOSING',
-                            leaderIdx: (data.leaderIdx + 1) % pList.length,
-                            missions: null,
-                            votes: null,
-                            currentProposal: null,
-                            missionHistory: currentHistory,
-                            lastMissionResult: missionLog // 🚩 ログを保存
-                        });
-                    }
-                }, 1500);
-            }
-        }*/
                 const currentHistory = data.missionHistory || [];
                 currentHistory.push(success);
 
