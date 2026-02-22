@@ -622,6 +622,7 @@
                 }
             }, 1000);
         }
+    }
         // 2. ミッションの集計（遠征メンバーの報告が揃ったら）
         if (data.phase === 'MISSION') {
             const missions = data.missions || {};
@@ -685,7 +686,7 @@
             }
         }
     }
-    }
+    
      window.animateMissionResult = (results) => {
         if (document.getElementById('overlay-mission')) return;
         const overlay = document.createElement('div');
