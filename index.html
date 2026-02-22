@@ -188,6 +188,7 @@
         document.getElementById('setup-screen').style.display = 'none';
         document.getElementById('lobby-screen').style.display = 'block';
         document.getElementById('room-display').innerText = roomId;
+        createLogArea();
 
         onValue(roomRef, (snapshot) => {
             const data = snapshot.val();
@@ -367,7 +368,9 @@
                             </div>`;
                         
                         // 「履歴はまだありません」を消す
-                        if (resultLog.innerHTML.includes("履歴はまだありません")) resultLog.innerHTML = "";
+                        if (resultLog.innerHTML.includes("履歴はまだありません")) {
+                            resultLog.innerHTML = "";
+                        }
                         resultLog.innerHTML = newVoteLog + resultLog.innerHTML;
                         lastProcessedVoteKey = voteKey; // 表示したことを記録！
                     }
