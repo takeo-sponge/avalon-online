@@ -931,36 +931,43 @@ window.leaveGame = () => {
     // 🚩 修正：提案時に5人目かどうかを判断
 
 // 🚩 window.sendProposal を修正
-    window.sendProposal = (isForced) => {
-        const selected = Array.from(document.querySelectorAll('.team-check:checked')).map(el => el.value);
-        
-        // 🚩 人数チェックを追加
-        // showGame内で計算している required の値を取得する
-        const allPlayers = document.querySelectorAll('.team-check').length;
-        const historyCount = document.querySelectorAll('.round-circle[style*="var(--blue)"], .round-circle[style*="var(--red)"]').length;
-        const missionSizes = { 5:[2,3,2,3,3], 6:[2,3,4,3,4], 7:[2,3,3,4,4], 8:[3,4,4,5,5], 9:[3,4,4,5,5], 10:[3,4,4,5,5] };
-        const required = missionSizes[allPlayers] ? missionSizes[allPlayers][historyCount] : 0;
+   window.sendProposal = async (isForced) => {
+    const selected = Array.from(document.querySelectorAll('.team-check:checked')).map(el => el.value);
     
-        if (selected.length !== required) {
-            return alert(`人数が違います！ ${required} 名選んでください。（現在 ${selected.length} 名）`);
-        }
+    // 🚩 修正ポイント：Firebaseから最新の「ミッション履歴」を直接取ってラウンド数を計算する
+    const snap = await get(ref(db, `rooms/${roomId}`));
+    const data = snap.val();
+    const history = data.missionHistory || [];
+    const historyCount = history.length; // これで確実に「今何ラウンド目か」がわかる
     
-        if (isForced) {
-            if (!confirm("5人目のリーダーなので投票なしで強制出発します。よろしいですか？")) return;
-            update(ref(db, `rooms/${roomId}`), {
-                currentProposal: selected,
-                phase: 'MISSION',
-                missions: null,
-                voteFailCount: 0
-            });
-        } else {
-            update(ref(db, `rooms/${roomId}`), {
-                currentProposal: selected,
-                phase: 'VOTING',
-                votes: null
-            });
-        }
+    const allPlayers = Object.keys(data.players).length;
+    const missionSizes = { 
+        5:[2,3,2,3,3], 6:[2,3,4,3,4], 7:[2,3,3,4,4], 
+        8:[3,4,4,5,5], 9:[3,4,4,5,5], 10:[3,4,4,5,5] 
     };
+    
+    const required = missionSizes[allPlayers] ? missionSizes[allPlayers][historyCount] : 0;
+
+    if (selected.length !== required) {
+        return alert(`人数が違います！ ${required} 名選んでください。（現在は ${selected.length} 名です）`);
+    }
+
+    if (isForced) {
+        if (!confirm("5人目のリーダーなので投票なしで強制出発します。よろしいですか？")) return;
+        update(ref(db, `rooms/${roomId}`), {
+            currentProposal: selected,
+            phase: 'MISSION',
+            missions: null,
+            voteFailCount: 0
+        });
+    } else {
+        update(ref(db, `rooms/${roomId}`), {
+            currentProposal: selected,
+            phase: 'VOTING',
+            votes: null
+        });
+    }
+};
 
     // --- ここから下は新しい関数として追加 ---
 
