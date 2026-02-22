@@ -215,6 +215,10 @@
 
     let myName = "", roomId = "", myId = null;
 
+        // 🚩 ここに追加！
+    let lastProcessedVoteKey = "";
+    let lastProcessedMissionKey = "";
+
 
 
 
@@ -611,45 +615,62 @@ window.leaveGame = () => {
 
         const failCount = data.voteFailCount || 0;
 
-        const resultLog = document.getElementById('result-log');
-         if (resultLog && data.lastVoteResult) {
-            // 注意：ここは「最新の1件」を表示する仕組みだけど、
-            // 履歴を「蓄積」させるにはFirebaseに全ログを保存するか、
-            // クライアント側で工夫する必要があるね。
-            // ひとまず、最新の「誰が誰を提案して、どうなったか」を詳細に出すよ。
-
-             const res = data.lastVoteResult;
-             const details = Object.entries(res.details).map(([id, v]) => 
-                 `<span style="color:${v ? 'var(--blue)' : 'var(--red)'}">${data.players[id] ? data.players[id].name : id}${v ? '◯' : '×'}</span>`
-             ).join(' ');
-
-             resultLog.innerHTML = `
-                 <div style="border-left: 4px solid ${res.approved ? 'var(--blue)' : 'var(--red)'}; padding-left: 10px; margin-bottom: 15px;">
-                     <strong style="color:var(--accent)">第 ${res.round}R - ${res.turn}回目提案</strong><br>
-                     <small>リーダー: ${res.leader}</small><br>
-                     <small>提案メンバー: ${res.team}</small><br>
-                     <div style="margin: 5px 0;">${res.approved ? '✅ 承認' : '❌ 否決'}</div>
-                     <div style="font-size: 0.9em; opacity: 0.8;">${details}</div>
-                 </div>
-             ` + resultLog.innerHTML; // 古いログを下に残す
-         } 
-
-        if (resultLog && data.lastMissionResult) {
-            const mRes = data.lastMissionResult;
-            // 成功なら青、失敗なら赤の線にする
-            const borderColor = mRes.success ? 'var(--blue)' : 'var(--red)';
-            const textColor = mRes.success ? 'var(--blue)' : 'var(--red)';
-        
-            resultLog.innerHTML = `
-                <div style="border-left: 4px solid ${borderColor}; padding-left: 10px; margin-bottom: 15px; background: rgba(255,255,255,0.05); padding-top: 5px; padding-bottom: 5px;">
-                    <strong style="color:${textColor}">🚀 第 ${mRes.round}R 遠征結果: ${mRes.success ? '成功' : '失敗'}</strong><br>
-                    <small>メンバー: ${mRes.team}</small><br>
-                    <div style="font-size: 0.9em; margin-top: 3px;">
-                        失敗カード: <b style="color:var(--red)">${mRes.fails} 枚</b>
-                    </div>
-                </div>
-            ` + resultLog.innerHTML;
-        }
+     　const resultLog = document.getElementById('result-log');
+            if (resultLog) {
+                // --- 🚩 投票ログの重複ガード ---
+                if (data.lastVoteResult) {
+                    // 「ラウンド・ターン・結果」を組み合わせた専用のキーを作る
+                    const voteKey = `v_${data.lastVoteResult.round}_${data.lastVoteResult.turn}_${data.lastVoteResult.approved}`;
+                    
+                    // まだ表示していないキーの時だけ、HTMLを追加する
+                    if (lastProcessedVoteKey !== voteKey) {
+                        const res = data.lastVoteResult;
+                        const details = Object.entries(res.details).map(([id, v]) => 
+                            `<span style="color:${v ? 'var(--blue)' : 'var(--red)'}">${data.players[id] ? data.players[id].name : id}${v ? '◯' : '×'}</span>`
+                        ).join(' ');
+    
+                        const newVoteLog = `
+                            <div style="border-left: 4px solid ${res.approved ? 'var(--blue)' : 'var(--red)'}; padding-left: 10px; margin-bottom: 15px;">
+                                <strong style="color:var(--accent)">第 ${res.round}R - ${res.turn}回目提案</strong><br>
+                                <small>リーダー: ${res.leader}</small><br>
+                                <small>提案メンバー: ${res.team}</small><br>
+                                <div style="margin: 5px 0;">${res.approved ? '✅ 承認' : '❌ 否決'}</div>
+                                <div style="font-size: 0.9em; opacity: 0.8;">${details}</div>
+                            </div>`;
+                        
+                        // 「履歴はまだありません」を消す
+                        if (resultLog.innerHTML.includes("履歴はまだありません")) resultLog.innerHTML = "";
+                        
+                        resultLog.innerHTML = newVoteLog + resultLog.innerHTML;
+                        lastProcessedVoteKey = voteKey; // 表示したことを記録！
+                    }
+                }
+    
+                // --- 🚩 遠征ログの重複ガード ---
+                if (data.lastMissionResult) {
+                    // 「ラウンド・成功失敗」を組み合わせた専用のキーを作る
+                    const missionKey = `m_${data.lastMissionResult.round}_${data.lastMissionResult.success}`;
+                    
+                    if (lastProcessedMissionKey !== missionKey) {
+                        const mRes = data.lastMissionResult;
+                        const color = mRes.success ? 'var(--blue)' : 'var(--red)';
+                        
+                        const newMissionLog = `
+                            <div style="border-left: 4px solid ${color}; padding-left: 10px; margin-bottom: 15px; background: rgba(255,255,255,0.05); padding: 8px;">
+                                <strong style="color:${color}">🚀 第 ${mRes.round}R 遠征結果: ${mRes.success ? '成功' : '失敗'}</strong><br>
+                                <small>メンバー: ${mRes.team}</small><br>
+                                <div style="font-size: 0.9em; margin-top: 3px;">
+                                    失敗カード: <b style="color:var(--red)">${mRes.fails} 枚</b>
+                                </div>
+                            </div>`;
+                        
+                        if (resultLog.innerHTML.includes("履歴はまだありません")) resultLog.innerHTML = "";
+                        
+                        resultLog.innerHTML = newMissionLog + resultLog.innerHTML;
+                        lastProcessedMissionKey = missionKey; // 表示したことを記録！
+                    }
+                }
+            }
 // 🚩 【ここまで追加】
 
 
@@ -909,45 +930,36 @@ window.leaveGame = () => {
 
     // 🚩 修正：提案時に5人目かどうかを判断
 
+// 🚩 window.sendProposal を修正
     window.sendProposal = (isForced) => {
-
         const selected = Array.from(document.querySelectorAll('.team-check:checked')).map(el => el.value);
-
-        if (selected.length == 0) return alert("遠征に行く人を選んで！");
-
         
-
-        if (isForced) {
-
-            if (!confirm("5人目のリーダーなので投票なしで強制出発します。よろしいですか？")) return;
-
-            update(ref(db, `rooms/${roomId}`), {
-
-                currentProposal: selected,
-
-                phase: 'MISSION', // 直接ミッションへ
-
-                missions: null,
-
-                voteFailCount: 0  // リセット
-
-            });
-
-        } else {
-
-            update(ref(db, `rooms/${roomId}`), {
-
-                currentProposal: selected,
-
-                phase: 'VOTING',
-
-                votes: null
-
-            });
-
+        // 🚩 人数チェックを追加
+        // showGame内で計算している required の値を取得する
+        const allPlayers = document.querySelectorAll('.team-check').length;
+        const historyCount = document.querySelectorAll('.round-circle[style*="var(--blue)"], .round-circle[style*="var(--red)"]').length;
+        const missionSizes = { 5:[2,3,2,3,3], 6:[2,3,4,3,4], 7:[2,3,3,4,4], 8:[3,4,4,5,5], 9:[3,4,4,5,5], 10:[3,4,4,5,5] };
+        const required = missionSizes[allPlayers] ? missionSizes[allPlayers][historyCount] : 0;
+    
+        if (selected.length !== required) {
+            return alert(`人数が違います！ ${required} 名選んでください。（現在 ${selected.length} 名）`);
         }
-
-       
+    
+        if (isForced) {
+            if (!confirm("5人目のリーダーなので投票なしで強制出発します。よろしいですか？")) return;
+            update(ref(db, `rooms/${roomId}`), {
+                currentProposal: selected,
+                phase: 'MISSION',
+                missions: null,
+                voteFailCount: 0
+            });
+        } else {
+            update(ref(db, `rooms/${roomId}`), {
+                currentProposal: selected,
+                phase: 'VOTING',
+                votes: null
+            });
+        }
     };
 
     // --- ここから下は新しい関数として追加 ---
