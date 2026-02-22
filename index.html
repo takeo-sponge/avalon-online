@@ -658,7 +658,8 @@
                 const roundNum = (data.missionHistory || []).length + 1;
                 const isSpecialRound = (pList.length >= 7 && roundNum === 4);
                 const success = isSpecialRound ? (fails < 2) : (fails === 0);
-                setTimeout(() => {
+                
+               /* setTimeout(() => {
                     alert(success ? "🎉 遠征成功！！" : `💀 遠征失敗... (失敗数: ${fails})`);
                     // 1. まず履歴に今回の結果を追加する！
                     const currentHistory = data.missionHistory || [];
@@ -708,7 +709,56 @@
                     }
                 }, 1500);
             }
+        }*/
+                const currentHistory = data.missionHistory || [];
+                currentHistory.push(success);
+
+                const missionLog = {
+                    round: currentHistory.length,
+                    team: data.currentProposal.map(id => data.players[id].name).join(", "),
+                    fails: fails,
+                    successes: successes,
+                    success: success
+                };
+
+                const wins = currentHistory.filter(v => v === true).length;
+                const losses = currentHistory.filter(v => v === false).length;
+
+                // アニメーションの時間（カード枚数 × 1秒 + α）を考慮して少し長めに待つ
+                const waitTime = 2000 + (memberCount * 1000) + 1000;
+
+                setTimeout(() => {
+                    if (wins === 3 || losses === 3) {
+                        if (wins === 3) {
+                            update(ref(db, `rooms/${roomId}`), {
+                                phase: 'ASSASSINATION',
+                                missionHistory: currentHistory,
+                                lastMissionResult: missionLog
+                            });
+                        } else {
+                            update(ref(db, `rooms/${roomId}`), {
+                                status: 'FINISHED',
+                                winner: 'Evil',
+                                phase: 'FINISHED',
+                                missionHistory: currentHistory,
+                                lastMissionResult: missionLog
+                            });
+                        }
+                    } else {
+                        update(ref(db, `rooms/${roomId}`), {
+                            phase: 'PROPOSING',
+                            leaderIdx: (data.leaderIdx + 1) % pList.length,
+                            missions: null,
+                            votes: null,
+                            currentProposal: null,
+                            missionHistory: currentHistory,
+                            lastMissionResult: missionLog
+                        });
+                    }
+                }, waitTime); // 🚩 ここで自動で次に進む！
+            }
         }
+                
     }
     
      window.animateMissionResult = (results) => {
