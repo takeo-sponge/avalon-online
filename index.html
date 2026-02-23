@@ -285,10 +285,11 @@
 
         onValue(roomRef, (snapshot) => {
             const data = snapshot.val();
-            if (!data) return; // データがない時は何もしない
+            if (!data) return; 
+
             const pList = data.players ? Object.values(data.players) : [];
             document.getElementById('player-count').innerText = pList.length;
-            // 🚩 修正：フラッグが出るように比較を == に変更
+
             document.getElementById('list-items').innerHTML = pList.map(p => {
                 const isLeader = p.id == data.leaderIdx; 
                 const isHost = p.name === data.hostName;
@@ -300,10 +301,12 @@
             } else {
                 document.getElementById('guest-msg').style.display = 'block';
             }
-            // 🚩 【追加】演出トリガー：ミッション中、または終了直後に結果があれば演出開始
+
+            // 演出トリガー
             if (data.lastMissionResults && !document.getElementById('overlay-mission')) {
                 window.animateMissionResult(data.lastMissionResults);
             }
+
             if (data.status === 'STARTED') {
                 showGame(data);
                 if (myName === data.hostName) {
@@ -321,9 +324,9 @@
                 } else {
                     showGame(data);
                 }
-            }
-        });
-    };
+            } // 🚩 FINISHEDの閉じ
+        }); // 🚩 onValueの閉じ
+    }; // 🚩 joinGameの閉じ
 
     window.setupRoles = async function() {
         const limit = parseInt(document.getElementById('play-limit').value);
