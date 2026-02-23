@@ -309,16 +309,9 @@
         btn.id = 'help-btn';
         btn.innerText = '?';
         btn.onclick = () => {
-            // 今、dataの中にどんな名前でデータが入っているか全部表示させる
-            const keys = Object.keys(data).join(", ");
-            alert("dataの中にある名前一覧: " + keys);
-            
-            // 役職リストとして怪しい場所を順番にチェック
-            const r1 = data.roles;
-            const r2 = data.config ? data.config.roles : "なし";
-            alert("rolesの中身: " + JSON.stringify(r1) + "\nconfig.rolesの中身: " + JSON.stringify(r2));
-
-            window.toggleHelp(data.roles || []);
+            // テスト用に、本来入るべきデータを手動で作ってみる
+            const dummyRoles = ["マーリン", "パーシヴァル", "暗殺者", "モルガナ"];
+            window.toggleHelp(dummyRoles);
         };
         document.body.appendChild(btn);
     }
