@@ -300,17 +300,29 @@
             } else {
                 document.getElementById('guest-msg').style.display = 'block';
             }
+            // 🚩 【追加】演出トリガー：ミッション中、または終了直後に結果があれば演出開始
+            if (data.lastMissionResults && !document.getElementById('overlay-mission')) {
+                window.animateMissionResult(data.lastMissionResults);
+            }
             if (data.status === 'STARTED') {
                 showGame(data);
                 if (myName === data.hostName) {
                     handleAutoJudgment(data, pList);
                 }
             } else if (data.status === 'FINISHED') {
-                // 🚩 決着がついた時は、演出時間（約7秒）を待ってから showGame を呼ぶ
-                // すでに演出用オーバーレイが出ているはずなので、それを邪魔しないようにする
-                setTimeout(() => {
+                // 🚩 【修正】門番：演出パネルがある間はリザルトへの切り替えを待つ
+                if (document.getElementById('overlay-mission')) {
+                    if (!window.isFinishTransitioning) {
+                        window.isFinishTransitioning = true; // 重複実行防止
+                        setTimeout(() => {
+                            showGame(data);
+                            window.isFinishTransitioning = false;
+                        }, 7500); // 演出をしっかり見せるための秒数
+                    }
+                } else {
+                    // 演出がなければ即座にリザルトへ
                     showGame(data);
-                }, 7000); 
+                }
             }
         });
     };
@@ -807,6 +819,7 @@
                                 phase: 'FINISHED',
                                 missionHistory: currentHistory,
                                 lastMissionResult: missionLog
+                                lastMissionResults: Object.values(missions)
                             });
                         }
                     } else {
