@@ -834,21 +834,28 @@
             const imgPath = `images/${imgFile}`; 
             
             card.innerHTML = `
-                <div class="card-inner">
-                    <div class="card-back" style="background:#222; color:#555; border: 2px solid #444;">
-                        <span style="font-size:2em;">?</span>
-                    </div>
-                    <div class="card-front ${res ? 'card-success' : 'card-fail'}">
-                        <img src="${imgPath}" onerror="this.src='https://via.placeholder.com/80x120?text=${res ? 'SUCCESS' : 'FAIL'}'">
-                        <div class="card-label">${res ? '成功' : '失敗'}</div>
-                    </div>
+                <div class="card-back" style="background:#2c3e50; border:1px solid #444;">
+                    <span style="font-size:2em;">?</span>
+                </div>
+                <div class="card-front ${res ? 'card-success' : 'card-fail'}">
+                    <img src="${imgPath}" onerror="this.style.display='none'">
+                    <div class="card-label">${res ? '成功' : '失敗'}</div>
                 </div>
             `;
             container.appendChild(card);
             setTimeout(() => {
                 card.classList.add('reveal');
-                if (!res) statusText.style.color = 'var(--red)';
-            }, 1500 + (i * 1000));
+                
+                // 🚩 失敗が出た時の追加演出（さっき決めた「暗黒の儀式」用）
+                if (!res) {
+                    overlay.classList.add('shake-screen');
+                    overlay.style.background = "rgba(100, 0, 0, 0.9)";
+                    setTimeout(() => {
+                        overlay.classList.remove('shake-screen');
+                        overlay.style.background = "rgba(0, 0, 0, 0.95)";
+                    }, 500);
+                }
+            }, 1500 + (i * 1200));
         });
     
         setTimeout(() => {
