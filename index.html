@@ -289,7 +289,8 @@
         const updates = { 
             status: 'STARTED',
             phase: 'PROPOSING', 
-            leaderIdx: 0,        // 最初のプレイヤーをリーダーにする
+            leaderIdx: 0,  // 最初のプレイヤーをリーダーにする
+            roles: pool,
             votes: null,         // 念のため初期化
             missions: null       // 念のため初期化
         };
@@ -309,9 +310,9 @@
         btn.id = 'help-btn';
         btn.innerText = '?';
         btn.onclick = () => {
-            // テスト用に、本来入るべきデータを手動で作ってみる
-            const dummyRoles = ["マーリン", "パーシヴァル", "暗殺者", "モルガナ"];
-            window.toggleHelp(dummyRoles);
+            // ダミー(dummyRoles)を消して、本物の data.roles を渡すように戻す
+            const r = data.roles || [];
+            window.toggleHelp(r);
         };
         document.body.appendChild(btn);
     }
