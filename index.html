@@ -310,17 +310,15 @@
                     handleAutoJudgment(data, pList);
                 }
             } else if (data.status === 'FINISHED') {
-                // 🚩 【修正】門番：演出パネルがある間はリザルトへの切り替えを待つ
                 if (document.getElementById('overlay-mission')) {
                     if (!window.isFinishTransitioning) {
-                        window.isFinishTransitioning = true; // 重複実行防止
+                        window.isFinishTransitioning = true;
                         setTimeout(() => {
                             showGame(data);
                             window.isFinishTransitioning = false;
-                        }, 7500); // 演出をしっかり見せるための秒数
+                        }, 7500);
                     }
                 } else {
-                    // 演出がなければ即座にリザルトへ
                     showGame(data);
                 }
             }
