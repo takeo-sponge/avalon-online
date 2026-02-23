@@ -260,30 +260,7 @@
         }
     };
 
-    window.joinGame = async function(isHostRequest) {
-        myName = document.getElementById('player-name').value.trim();
-        roomId = document.getElementById('room-id').value.trim();
-        if (!myName || !roomId) return alert("入力してね！");
-        localStorage.setItem('avalon_name', myName);
-        localStorage.setItem('avalon_room', roomId);
-        localStorage.setItem('avalon_isHost', isHostRequest);
-        const roomRef = ref(db, `rooms/${roomId}`);
-        const snap = await get(roomRef);
-        if (isHostRequest) await update(roomRef, { hostName: myName });
-        const pSnap = await get(ref(db, `rooms/${roomId}/players`));
-        const players = pSnap.val() || {};
-        let foundId = Object.keys(players).find(id => players[id].name === myName);
-        if (foundId === undefined) {
-            foundId = Object.keys(players).length;
-            await set(ref(db, `rooms/${roomId}/players/${foundId}`), { id: foundId, name: myName });
-        }
-        myId = foundId;
-        document.getElementById('setup-screen').style.display = 'none';
-        document.getElementById('lobby-screen').style.display = 'block';
-        document.getElementById('room-display').innerText = roomId;
-        createLogArea();
-
-        onValue(roomRef, (snapshot) => {
+    onValue(roomRef, (snapshot) => {
             const data = snapshot.val();
             if (!data) return; 
 
@@ -324,9 +301,9 @@
                 } else {
                     showGame(data);
                 }
-            } // 🚩 FINISHEDの閉じ
+            }
         }); // 🚩 onValueの閉じ
-    //}; // 🚩 joinGameの閉じ
+    }; // 🚩 joinGameの閉じ
 
     window.setupRoles = async function() {
         const limit = parseInt(document.getElementById('play-limit').value);
