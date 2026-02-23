@@ -932,14 +932,7 @@
         `;
         modal.style.display = 'block';
     };
-        // showGameの中にボタンを配置する処理を追加
-        if (!document.getElementById('help-btn')) {
-            const btn = document.createElement('button');
-            btn.id = 'help-btn';
-            btn.innerText = '?';
-            btn.onclick = () => window.toggleHelp(data.roles); // data.rolesを渡す
-            document.body.appendChild(btn);
-        }
+
         
 </script>
 </body>
