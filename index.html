@@ -926,9 +926,8 @@
             const found = rolesInGame.filter(r => r === roleName);
             sortedRoles.push(...found);
         });
-
-        const roleListHtml = rolesInGame.map(r => `<li><strong>${r}</strong>: ${descriptions[r] || ''}</li>`).join('');
-    
+        const roleListHtml = sortedRoles.map(r => `<li><strong>${r}</strong>: ${descriptions[r] || ''}</li>`).join('');
+        
         modal.innerHTML = `
             <div class="help-content" onclick="event.stopPropagation()">
                 <h2 style="color:var(--accent); margin-top:0;">今回の役職構成</h2>
