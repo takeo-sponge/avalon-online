@@ -61,6 +61,45 @@
             100% { transform: translate(1px, 1px) rotate(0deg); }
         }
         .shaking { animation: shake 0.5s infinite; }
+
+        #help-btn {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        z-index: 1000;
+        background: rgba(0,0,0,0.6);
+        color: white;
+        border: 1px solid var(--accent, #f1c40f); /* 変数がない場合のために色を指定 */
+        border-radius: 50%;
+        width: 35px;
+        height: 35px;
+        cursor: pointer;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        }
+    
+        #help-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 10001;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+    
+        .help-content {
+            background: #222;
+            border: 2px solid var(--accent, #f1c40f);
+            border-radius: 10px;
+            padding: 20px;
+            max-width: 500px;
+            margin: 40px auto;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -120,6 +159,8 @@
         <div class="round-circle" id="round-4" style="width:40px; height:40px; border-radius:50%; border:2px solid #444; display:flex; align-items:center; justify-content:center; font-weight:bold;">4</div>
         <div class="round-circle" id="round-5" style="width:40px; height:40px; border-radius:50%; border:2px solid #444; display:flex; align-items:center; justify-content:center; font-weight:bold;">5</div>
     </div>
+
+    
 
     <h3 id="my-role-name" style="color:var(--accent); font-size:2em; margin:10px 0;"></h3>
     <div id="role-purpose" style="font-weight:bold; margin-bottom:15px; border-bottom:1px solid #444; padding-bottom:10px;"></div>
@@ -263,6 +304,16 @@
     };
     
    function showGame(data) {
+       if (!document.getElementById('help-btn')) {
+        const btn = document.createElement('button');
+        btn.id = 'help-btn';
+        btn.innerText = '?';
+        btn.onclick = () => {
+            // ボタンを押した時に、今のゲームの役職リストを表示する
+            window.toggleHelp(data.roles || []);
+        };
+        document.body.appendChild(btn);
+    }
         if (!data.players || data.leaderIdx === undefined) return;
         const me = data.players[myId];
         const all = Object.values(data.players);
@@ -837,6 +888,59 @@
             setTimeout(() => overlay.remove(), 1000);
         }, 6500);
     };
+// ヘルプを表示する関数
+    window.toggleHelp = (rolesInGame = []) => {
+        let modal = document.getElementById('help-modal');
+        if (!modal) {
+            // 初回だけモーダルを作成
+            modal = document.createElement('div');
+            modal.id = 'help-modal';
+            modal.onclick = () => modal.style.display = 'none'; // 枠外クリックで閉じる
+            document.body.appendChild(modal);
+        }
+    
+        if (modal.style.display === 'block') {
+            modal.style.display = 'none';
+            return;
+        }
+    
+        // 役職の説明データ
+        const descriptions = {
+            "マーリン": "邪悪なメンバーを知っている。最後に暗殺されると負け。",
+            "パーシヴァル": "マーリン（とモルガナ）が誰か見えている。",
+            "正義の忠臣": "能力はない。遠征を成功させるのが使命。",
+            "暗殺者": "最後にマーリンを当てれば逆転勝利。",
+            "モルガナ": "パーシヴァルに対してマーリンのふりをする。",
+            "モードレッド": "マーリンに正体を知られない。",
+            "オベロン": "仲間を知らず、仲間からも知られない孤高の邪悪。",
+            "邪悪の手先": "能力はない。遠征を失敗させるのが使命。"
+        };
+    
+        const roleListHtml = rolesInGame.map(r => `<li><strong>${r}</strong>: ${descriptions[r] || ''}</li>`).join('');
+    
+        modal.innerHTML = `
+            <div class="help-content" onclick="event.stopPropagation()">
+                <h2 style="color:var(--accent); margin-top:0;">今回の役職構成</h2>
+                <ul style="text-align:left; font-size:0.9em; line-height:1.6;">
+                    ${roleListHtml}
+                </ul>
+                <button onclick="document.getElementById('help-modal').style.display='none'" 
+                        style="width:100%; padding:10px; margin-top:10px; background:#444; color:white; border:none; border-radius:5px;">
+                    閉じる
+                </button>
+            </div>
+        `;
+        modal.style.display = 'block';
+    };
+        // showGameの中にボタンを配置する処理を追加
+        if (!document.getElementById('help-btn')) {
+            const btn = document.createElement('button');
+            btn.id = 'help-btn';
+            btn.innerText = '?';
+            btn.onclick = () => window.toggleHelp(data.roles); // data.rolesを渡す
+            document.body.appendChild(btn);
+        }
+        
 </script>
 </body>
 </html>
