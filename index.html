@@ -309,12 +309,15 @@
         btn.id = 'help-btn';
         btn.innerText = '?';
         btn.onclick = () => {
-            const roles = data.roles || (data.config ? data.config.roles : []);
+            // 今、dataの中にどんな名前でデータが入っているか全部表示させる
+            const keys = Object.keys(data).join(", ");
+            alert("dataの中にある名前一覧: " + keys);
             
-            // 確認用にコンソールにデータを表示（F12で確認できる）
-            console.log("現在のRoomデータ:", data);
-            console.log("取得した役職リスト:", roles);
-            // ボタンを押した時に、今のゲームの役職リストを表示する
+            // 役職リストとして怪しい場所を順番にチェック
+            const r1 = data.roles;
+            const r2 = data.config ? data.config.roles : "なし";
+            alert("rolesの中身: " + JSON.stringify(r1) + "\nconfig.rolesの中身: " + JSON.stringify(r2));
+
             window.toggleHelp(data.roles || []);
         };
         document.body.appendChild(btn);
