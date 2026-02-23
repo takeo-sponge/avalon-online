@@ -300,11 +300,17 @@
             } else {
                 document.getElementById('guest-msg').style.display = 'block';
             }
-            if (data.status === 'STARTED' || data.status === 'FINISHED') {
+            if (data.status === 'STARTED') {
                 showGame(data);
-                if (data.status === 'STARTED' && myName === data.hostName) {
+                if (myName === data.hostName) {
                     handleAutoJudgment(data, pList);
                 }
+            } else if (data.status === 'FINISHED') {
+                // 🚩 決着がついた時は、演出時間（約7秒）を待ってから showGame を呼ぶ
+                // すでに演出用オーバーレイが出ているはずなので、それを邪魔しないようにする
+                setTimeout(() => {
+                    showGame(data);
+                }, 7000); 
             }
         });
     };
