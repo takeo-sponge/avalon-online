@@ -917,7 +917,16 @@
             "オベロン": "仲間を知らず、仲間からも知られない孤高の邪悪。",
             "邪悪の手先": "能力はない。遠征を失敗させるのが使命。"
         };
+        const order = ["マーリン", "パーシヴァル", "正義の忠臣", "暗殺者", "モードレッド", "モルガナ", "オベロン", "邪悪の手先"];
     
+        // 指定した順番（order）通りに rolesInGame を並べ替える
+        const sortedRoles = [];
+        order.forEach(roleName => {
+            // 元のリスト（rolesInGame）にある分だけ、この順番で追加していく
+            const found = rolesInGame.filter(r => r === roleName);
+            sortedRoles.push(...found);
+        });
+
         const roleListHtml = rolesInGame.map(r => `<li><strong>${r}</strong>: ${descriptions[r] || ''}</li>`).join('');
     
         modal.innerHTML = `
