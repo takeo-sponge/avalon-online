@@ -857,6 +857,33 @@
                 }
             }, 1500 + (i * 1200));
         });
+
+         // 🚩 全部のカードが開いた後の「陣営カラー侵食」演出
+    setTimeout(() => {
+        const isSuccess = !shuffled.includes(false); // 失敗（false）が1枚もなければ成功
+        
+        if (isSuccess) {
+            overlay.classList.add('bg-success-glow'); // CSSで追加した青い光
+            statusText.innerText = "✨ 遠征成功 ✨";
+            statusText.style.color = "#3498db";
+        } else {
+            overlay.classList.add('bg-fail-mist'); // CSSで追加した赤い霧
+            statusText.innerText = "💀 遠征失敗 💀";
+            statusText.style.color = "#e74c3c";
+        }
+        
+        statusText.style.fontSize = "3em";
+        statusText.style.transition = "all 1s ease";
+        statusText.style.textShadow = isSuccess ? "0 0 30px #3498db" : "0 0 30px #e74c3c";
+
+        // 3秒後にフェードアウトして閉じる
+        setTimeout(() => {
+            overlay.style.opacity = "0";
+            overlay.style.transition = "opacity 1s";
+            setTimeout(() => overlay.remove(), 1000);
+        }, 3000);
+        
+    }, 1500 + (shuffled.length * 1200) + 500); // 全カードがめくり終わるタイミング
     
         setTimeout(() => {
             statusText.classList.remove('shaking');
