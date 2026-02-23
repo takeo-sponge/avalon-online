@@ -22,9 +22,9 @@
           /* 遠征カードの演出用スタイル */
         .mission-card {
             display: inline-block;
-            width: 80px;  /* 画像を見やすく少し大きく */
-            height: 120px;
-            margin: 10px;
+            width: 120px;  /* 画像を見やすく少し大きく */
+            height: 180px;
+            margin: 15px;
             background: var(--card);
             border: 2px solid var(--accent);
             border-radius: 8px;
@@ -131,8 +131,8 @@
             bottom: 0;
             width: 100%;
             background: rgba(0, 0, 0, 0.7); /* 半透明の黒背景 */
-            font-size: 0.7em;
-            line-height: 24px;
+            font-size: 1.1em;
+            line-height: 35px;
             text-align: center;
             color: white;
             z-index: 2;
@@ -824,8 +824,15 @@
         if (document.getElementById('overlay-mission')) return;
         const overlay = document.createElement('div');
         overlay.id = 'overlay-mission';
-        overlay.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:1000; display:flex; flex-direction:column; align-items:center; justify-content:center;";
-        
+       // overlay.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:1000; display:flex; flex-direction:column; align-items:center; justify-content:center;";
+        overlay.style.cssText = `
+                position:fixed; top:0; left:0; width:100%; height:100%; 
+                background:rgba(0,0,0,0.95); z-index:30000; 
+                display:flex; flex-direction:column; align-items:center; 
+                justify-content:center; transition: background 1s;
+                overflow-y: auto;
+                padding: 20px 0;
+            `;  
         const shuffled = [...results].sort(() => Math.random() - 0.5);
         overlay.innerHTML = `
             <h2 id="mission-status-text" class="shaking" style="color:var(--accent); margin-bottom:20px;">結果を回収中...</h2>
@@ -896,7 +903,7 @@
         
     }, 1500 + (shuffled.length * 1200) + 500); // 全カードがめくり終わるタイミング
     
-        setTimeout(() => {
+     /*   setTimeout(() => {
             statusText.classList.remove('shaking');
             statusText.innerText = shuffled.filter(r => !r).length > 0 ? "遠征失敗..." : "遠征成功！";
             setTimeout(() => {
@@ -906,6 +913,7 @@
             }, 2000); 
             
         }, 1500 + (shuffled.length * 1000) + 500);
+        */
     };
 
     function createLogArea() {
