@@ -309,6 +309,11 @@
         btn.id = 'help-btn';
         btn.innerText = '?';
         btn.onclick = () => {
+            const roles = data.roles || (data.config ? data.config.roles : []);
+            
+            // 確認用にコンソールにデータを表示（F12で確認できる）
+            console.log("現在のRoomデータ:", data);
+            console.log("取得した役職リスト:", roles);
             // ボタンを押した時に、今のゲームの役職リストを表示する
             window.toggleHelp(data.roles || []);
         };
